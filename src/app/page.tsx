@@ -1,247 +1,194 @@
-"use client";
+import Link from "next/link";
 
-import { useState } from "react";
+const STEPS = [
+  {
+    number: "01",
+    title: "Describe your build",
+    description:
+      "Tell Pathfinder what you want in plain English — a shop system, a pet inventory, a full simulator loop. No Lua required.",
+  },
+  {
+    number: "02",
+    title: "Pathfinder plans it",
+    description:
+      "The AI breaks your prompt into structured build actions — scripts, UI, datastores, NPCs — the same way a real developer would plan the work.",
+  },
+  {
+    number: "03",
+    title: "It builds itself",
+    description:
+      "The Pathfinder plugin executes those actions live inside Roblox Studio. Objects, scripts, and systems appear in your game automatically.",
+  },
+];
+
+const FEATURES = [
+  {
+    title: "Natural language builds",
+    description:
+      "Skip the boilerplate. Describe what the feature should do and Pathfinder writes the systems behind it.",
+  },
+  {
+    title: "Works inside Roblox Studio",
+    description:
+      "No copy-pasting code between windows. Pathfinder's plugin builds directly inside your actual project.",
+  },
+  {
+    title: "Full systems, not snippets",
+    description:
+      "Datastores, UI, NPCs, shops — Pathfinder builds connected systems, not isolated scripts you have to wire together yourself.",
+  },
+  {
+    title: "Built for iteration",
+    description:
+      "Keep refining with follow-up prompts. Pathfinder understands your project as it grows, not just a single request.",
+  },
+];
 
 export default function Home() {
-  const [page, setPage] = useState("Dashboard");
-  const [prompt, setPrompt] = useState("");
-  const [status, setStatus] = useState("Ready");
-  const [progress, setProgress] = useState(0);
-  const [logs, setLogs] = useState([
-    "Pathfinder Core initialized",
-    "Developer environment loaded",
-    "Waiting for build request..."
-  ]);
-
-  function build() {
-    if (!prompt) {
-      setStatus("Enter a build request");
-      return;
-    }
-
-    setStatus("Planning...");
-    setProgress(20);
-
-    setLogs((l) => [
-      ...l,
-      `User request: ${prompt}`,
-      "AI planner started"
-    ]);
-
-    setTimeout(() => {
-      setProgress(50);
-      setStatus("Generating Roblox actions");
-
-      setLogs((l) => [
-        ...l,
-        "Creating build instructions"
-      ]);
-    }, 1000);
-
-    setTimeout(() => {
-      setProgress(100);
-      setStatus("Complete");
-
-      setLogs((l) => [
-        ...l,
-        "Build plan completed"
-      ]);
-    }, 2500);
-  }
-
-
   return (
-    <main className="min-h-screen bg-[#070707] text-white flex font-sans">
-
-      <aside className="w-72 border-r border-white/10 p-6">
-
-        <h1 className="text-3xl font-black tracking-tight">
-          Pathfinder
-        </h1>
-
-        <p className="text-sm text-zinc-500">
-          Mintrix Developments
-        </p>
-
-
-        <div className="mt-10 space-y-2">
-
-          {[
-            "Dashboard",
-            "Projects",
-            "AI Engine",
-            "Plugin",
-            "Settings"
-          ].map(item => (
-
-            <button
-              key={item}
-              onClick={() => setPage(item)}
-              className={`w-full text-left px-4 py-3 rounded-xl transition ${
-                page === item
-                ? "bg-white text-black"
-                : "hover:bg-white/10 text-zinc-400"
-              }`}
-            >
-              {item}
-            </button>
-
-          ))}
-
-        </div>
-
-
-        <div className="absolute bottom-6 text-xs text-zinc-600">
-          Pathfinder Alpha v0.1
-        </div>
-
-      </aside>
-
-
-
-      <section className="flex-1 p-10">
-
-
-        <div className="flex justify-between">
-
-          <div>
-            <h2 className="text-5xl font-black">
-              {page}
-            </h2>
-
-            <p className="text-zinc-400 mt-2">
-              AI Roblox development console
-            </p>
-          </div>
-
-
-          <div className="bg-yellow-400 text-black px-5 py-2 rounded-full font-bold">
-            DEV MODE
-          </div>
-
-        </div>
-
-
-
-        <div className="grid md:grid-cols-3 gap-5 mt-10">
-
-
-          <Card title="System">
-            <span className="text-green-400">
-              ● Online
-            </span>
-          </Card>
-
-
-          <Card title="AI Engine">
-            <span className="text-yellow-400">
-              ● Testing
-            </span>
-          </Card>
-
-
-          <Card title="Plugin">
-            <span className="text-red-400">
-              ● Not Connected
-            </span>
-          </Card>
-
-
-        </div>
-
-
-
-        <div className="mt-8 bg-white/5 border border-white/10 rounded-3xl p-8">
-
-          <h3 className="text-2xl font-bold">
-            Build Request
-          </h3>
-
-          <textarea
-            className="mt-5 w-full h-40 bg-black border border-white/10 rounded-2xl p-5 outline-none focus:border-white/40"
-            placeholder="Build a simulator game with pets..."
-            value={prompt}
-            onChange={(e)=>setPrompt(e.target.value)}
-          />
-
-
-          <button
-            onClick={build}
-            className="mt-5 px-8 py-4 rounded-xl bg-white text-black font-bold hover:scale-105 transition"
+    <div className="flex min-h-screen flex-col bg-white text-neutral-900">
+      <header className="flex items-center justify-between px-6 py-5 md:px-10">
+        <span className="text-lg font-semibold tracking-tight">Pathfinder</span>
+        <nav className="flex items-center gap-3">
+          <Link
+            href="/sign-in"
+            className="rounded-lg px-3.5 py-2 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900"
           >
-            Generate Build
-          </button>
+            Sign in
+          </Link>
+          <Link
+            href="/sign-up"
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+          >
+            Get started
+          </Link>
+        </nav>
+      </header>
 
+      {/* Hero */}
+      <section className="flex flex-col items-center px-6 pb-20 pt-16 text-center md:pt-24">
+        <span className="mb-5 rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-500">
+          Alpha · Early access
+        </span>
+        <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-neutral-900 md:text-5xl">
+          Your next Roblox game,
+          <br />
+          built by describing it.
+        </h1>
+        <p className="mt-5 max-w-lg text-base text-neutral-500">
+          Pathfinder is an AI Roblox developer. Type what you want, and it
+          plans, writes, and builds the systems directly inside Roblox
+          Studio — scripts, UI, datastores, NPCs, and more.
+        </p>
+        <div className="mt-8 flex items-center gap-3">
+          <Link
+            href="/sign-up"
+            className="rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+          >
+            Start building free
+          </Link>
+          <Link
+            href="/sign-in"
+            className="rounded-lg border border-neutral-200 px-5 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+          >
+            Sign in
+          </Link>
+        </div>
 
-          <div className="mt-6">
-
-            <p className="text-zinc-400">
-              {status}
-            </p>
-
-
-            <div className="mt-3 h-3 bg-black rounded-full overflow-hidden">
-
-              <div
-                className="h-full bg-white transition-all"
-                style={{
-                  width:`${progress}%`
-                }}
-              />
-
-            </div>
-
+        <div className="mt-16 w-full max-w-xl rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-left">
+          <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
+            <div className="h-2.5 w-2.5 rounded-full bg-neutral-300" />
+            <div className="h-2.5 w-2.5 rounded-full bg-neutral-300" />
+            <div className="h-2.5 w-2.5 rounded-full bg-neutral-300" />
           </div>
-
+          <p className="pt-3 text-sm text-neutral-500">
+            "Build a modern simulator game with pets, UI, datastores, NPCs,
+            and a shop."
+          </p>
         </div>
-
-
-
-        <div className="mt-8 bg-black border border-white/10 rounded-3xl p-6 font-mono">
-
-          <h3 className="font-bold mb-4">
-            Live Logs
-          </h3>
-
-          {logs.map((x,i)=>(
-            <p key={i} className="text-zinc-400">
-              {">"} {x}
-            </p>
-          ))}
-
-        </div>
-
-
       </section>
 
-    </main>
+      {/* How it works */}
+      <section className="border-t border-neutral-100 bg-neutral-50/50 px-6 py-20 md:px-10">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-14 text-center">
+            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              How it works
+            </h2>
+            <p className="mt-3 text-sm text-neutral-500">
+              From prompt to playable, in three steps.
+            </p>
+          </div>
+          <div className="grid gap-8 md:grid-cols-3">
+            {STEPS.map((step) => (
+              <div key={step.number} className="flex flex-col">
+                <span className="text-sm font-medium text-neutral-300">
+                  {step.number}
+                </span>
+                <h3 className="mt-3 text-base font-semibold text-neutral-900">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="px-6 py-20 md:px-10">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-14 text-center">
+            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              Built for real Roblox development
+            </h2>
+            <p className="mt-3 text-sm text-neutral-500">
+              Not another code generator. An AI that actually builds inside
+              your project.
+            </p>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2">
+            {FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                className="rounded-xl border border-neutral-200 p-5 transition-colors hover:border-neutral-300"
+              >
+                <h3 className="text-sm font-semibold text-neutral-900">
+                  {feature.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+                  {feature.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="border-t border-neutral-100 px-6 py-20 text-center md:px-10">
+        <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          Stop writing boilerplate. Start describing.
+        </h2>
+        <p className="mx-auto mt-3 max-w-md text-sm text-neutral-500">
+          Pathfinder is in early access. Sign up now and be one of the first
+          developers building with it.
+        </p>
+        <div className="mt-7">
+          <Link
+            href="/sign-up"
+            className="rounded-lg bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800"
+          >
+            Get early access
+          </Link>
+        </div>
+      </section>
+
+      <footer className="border-t border-neutral-100 px-6 py-6 text-center text-xs text-neutral-400 md:px-10">
+        Mintrix Developments
+      </footer>
+    </div>
   );
-}
-
-
-
-function Card({
- title,
- children
-}:{
- title:string;
- children:React.ReactNode;
-}){
-
-return (
-
-<div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-
-<p className="text-zinc-400">
-{title}
-</p>
-
-<div className="mt-3 font-bold">
-{children}
-</div>
-
-</div>
-
-)
-
 }
