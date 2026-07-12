@@ -1,44 +1,17 @@
-type BuildStatus = "completed" | "failed" | "queued";
+"use client";
 
-interface BuildEntry {
-  id: string;
-  prompt: string;
-  status: BuildStatus;
-  timestamp: string;
-  actions: number;
-}
+import { useBuilds } from "../builds-context";
 
-const BUILDS: BuildEntry[] = [
-  {
-    id: "bld_1",
-    prompt: "Build a modern simulator game with pets, UI, datastores, NPCs, and a shop.",
-    status: "completed",
-    timestamp: "2h ago",
-    actions: 14,
-  },
-  {
-    id: "bld_2",
-    prompt: "Add a leaderboard UI showing top 10 players by coins.",
-    status: "failed",
-    timestamp: "5h ago",
-    actions: 3,
-  },
-  {
-    id: "bld_3",
-    prompt: "Create a datastore module for saving player pet inventory.",
-    status: "queued",
-    timestamp: "just now",
-    actions: 0,
-  },
-];
-
-const STATUS_STYLES: Record<BuildStatus, string> = {
+const STATUS_STYLES: Record<string, string> = {
   completed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   failed: "bg-red-500/10 text-red-400 border-red-500/20",
   queued: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  planned: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
 };
 
 export default function BuildsPage() {
+  const { builds } = useBuilds();
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
       <div>
@@ -48,36 +21,32 @@ export default function BuildsPage() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-surface">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-border text-xs text-muted">
-              <th className="px-4 py-3 font-medium">Prompt</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">When</th>
-            </tr>
-          </thead>
-          <tbody>
-            {BUILDS.map((build) => (
-              <tr
-                key={build.id}
-                className="border-b border-border last:border-0 transition-colors hover:bg-surface-hover"
-              >
-                <td className="max-w-xs truncate px-4 py-3">{build.prompt}</td>
-                <td className="px-4 py-3 text-muted-foreground">{build.actions}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium capitalize ${STATUS_STYLES[build.status]}`}
-                  >
-                    {build.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{build.timestamp}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="flex flex-col gap-2">
+        {builds.map((build) => (
+          <div key={build.id} className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-border-hover">
+            <div className="flex items-center justify-between gap-4">
+              <span className="truncate text-sm text-foreground">{build.prompt}</span>
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="text-xs text-muted">{build.timestamp}</span>
+                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium capitalize ${STATUS_STYLES[build.status]}`}>
+                  {build.status}
+                </span>
+              </div>
+            </div>
+            {build.actions && build.actions.length > 0 && (
+              <div className="flex flex-col gap-1 border-t border-border pt-2">
+                {build.actions.map((action, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase">
+                      {action.type}
+                    </span>
+                    {action.description}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

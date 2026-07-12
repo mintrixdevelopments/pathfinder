@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BuildsProvider } from "./builds-context";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard", icon: "grid" },
@@ -94,7 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Alpha · Dev Build
           </span>
         </header>
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto"><BuildsProvider>{children}</BuildsProvider></main>
       </div>
     </div>
   );
