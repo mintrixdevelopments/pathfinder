@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
-import { UserButton } from "@clerk/nextjs";
+import { auth } from "../auth";
 
 const STEPS = [
   { number: "01", title: "Say what you want", description: "\"Add a pet shop with rarities and a leaderboard.\" Type it like you'd say it to a teammate — no code needed." },
@@ -11,7 +10,7 @@ const STEPS = [
 const FEATURES = [
   { title: "Talk to it like a person", description: "No prompt engineering, no special syntax. Describe the feature the way you'd explain it to a friend." },
   { title: "Lives inside Roblox Studio", description: "Nothing to copy or paste. Pathfinder builds directly in your open project, in real time." },
-  { title: "Whole features, not fragments", description: "Ask for a shop and you get the shop, the UI, the data saving, and the NPC that runs it — all connected." },
+  { title: "Whole systems, not fragments", description: "Ask for a shop and you get the shop, the UI, the data saving, and the NPC that runs it — all connected." },
   { title: "Remembers your project", description: "Keep asking for more. Pathfinder understands what you've already built and adds to it, instead of starting over." },
 ];
 
@@ -22,7 +21,12 @@ const FOOTER_LINKS = {
   ],
   Company: [
     { label: "Mintrix Developments", href: "#" },
+    { label: "Donate", href: "/donate" },
     { label: "Contact", href: "mailto:hello@pathfinder.dev" },
+  ],
+  Legal: [
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
   ],
 };
 
@@ -33,32 +37,36 @@ const SOCIALS = [
 ];
 
 export default async function Home() {
-  const { userId } = await auth();
+  const session = await auth();
+  const isLoggedIn = !!session?.user;
 
   return (
-    <div className="flex min-h-screen flex-col bg-white text-neutral-900">
-      <header className="flex items-center justify-between px-6 py-5 md:px-10">
-        <span className="text-lg font-semibold tracking-tight">Pathfinder</span>
+    <div className="flex min-h-screen flex-col overflow-hidden bg-white text-neutral-900">
+      <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-10">
+        <span className="flex items-center gap-2 text-lg font-semibold tracking-tight"><img src="/logo-icon.png" alt="" className="h-6 w-6" />Pathfinder</span>
         <nav className="flex items-center gap-3">
-          {userId ? (
+          <Link href="/donate" className="hidden text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-900 sm:block">
+            Donate
+          </Link>
+          {isLoggedIn ? (
             <>
-              <Link href="/dashboard" className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
+              <Link href="/dashboard" className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-all hover:scale-[1.03] hover:bg-neutral-800 active:scale-[0.97]">
                 Go to dashboard
               </Link>
-              <UserButton
-                appearance={{
-                  elements: {
-                    userButtonPopoverFooter: "hidden",
-                  },
-                }}
-              />
+              {session?.user?.image ? (
+                <img src={session.user.image} alt="" className="h-8 w-8 rounded-full border border-neutral-200" />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-900 text-xs font-medium text-white">
+                  {(session?.user?.name || session?.user?.email || "U").slice(0, 2).toUpperCase()}
+                </div>
+              )}
             </>
           ) : (
             <>
               <Link href="/sign-in" className="rounded-lg px-3.5 py-2 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900">
                 Sign in
               </Link>
-              <Link href="/sign-up" className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
+              <Link href="/sign-in" className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-all hover:scale-[1.03] hover:bg-neutral-800 active:scale-[0.97]">
                 Get started
               </Link>
             </>
@@ -66,30 +74,31 @@ export default async function Home() {
         </nav>
       </header>
 
-      <section className="flex flex-col items-center px-6 pb-20 pt-16 text-center md:pt-24">
-        <span className="mb-5 rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-500">
-          Alpha · Early access
-        </span>
-        <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-neutral-900 md:text-5xl">
-          Your next Roblox game,
-          <br />
-          built by describing it.
-        </h1>
-        <p className="mt-5 max-w-lg text-base text-neutral-500">
-          Pathfinder is an AI Roblox developer. Tell it what you want, and it builds the systems directly inside Roblox Studio — scripts, UI, datastores, NPCs, and more.
-        </p>
-        <div className="mt-8 flex items-center gap-3">
-          <Link href={userId ? "/dashboard" : "/sign-up"} className="rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
-            {userId ? "Go to dashboard" : "Start building free"}
-          </Link>
-          {!userId && (
-            <Link href="/sign-in" className="rounded-lg border border-neutral-200 px-5 py-2.5 text-sm font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50">
-              Sign in
-            </Link>
-          )}
+      <section className="relative flex flex-col items-center overflow-hidden px-6 pb-20 pt-16 text-center md:pt-24">
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div className="animate-float absolute -top-20 left-1/4 h-72 w-72 rounded-full bg-indigo-100 opacity-50 blur-3xl" />
+          <div className="animate-float-slow absolute top-10 right-1/4 h-80 w-80 rounded-full bg-neutral-100 opacity-60 blur-3xl" />
+          <div className="animate-float absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-blue-50 opacity-50 blur-3xl" />
         </div>
 
-        <div className="mt-16 w-full max-w-xl rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-left">
+        <span className="animate-fade-in-up mb-5 rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-500">
+          Alpha · Early access
+        </span>
+        <h1 className="animate-fade-in-up max-w-2xl text-4xl font-semibold tracking-tight text-neutral-900 md:text-5xl" style={{ animationDelay: "0.08s" }}>
+          Your next Roblox game,
+          <br />
+          <span className="text-gradient">built by describing it.</span>
+        </h1>
+        <p className="animate-fade-in-up mt-5 max-w-lg text-base text-neutral-500" style={{ animationDelay: "0.16s" }}>
+          Pathfinder is an AI Roblox developer. Tell it what you want, and it builds the systems directly inside Roblox Studio — scripts, UI, datastores, NPCs, and more.
+        </p>
+        <div className="animate-fade-in-up mt-8 flex items-center gap-3" style={{ animationDelay: "0.24s" }}>
+          <Link href={isLoggedIn ? "/dashboard" : "/sign-in"} className="rounded-lg bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white transition-all hover:scale-[1.03] hover:bg-neutral-800 active:scale-[0.97]">
+            {isLoggedIn ? "Go to dashboard" : "Start building free"}
+          </Link>
+        </div>
+
+        <div className="animate-fade-in-up mt-16 w-full max-w-xl rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg" style={{ animationDelay: "0.32s" }}>
           <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
             <div className="h-2.5 w-2.5 rounded-full bg-neutral-300" />
             <div className="h-2.5 w-2.5 rounded-full bg-neutral-300" />
@@ -109,7 +118,7 @@ export default async function Home() {
           </div>
           <div className="grid gap-8 md:grid-cols-3">
             {STEPS.map((step) => (
-              <div key={step.number} className="flex flex-col">
+              <div key={step.number} className="flex flex-col transition-transform hover:-translate-y-1">
                 <span className="text-sm font-medium text-neutral-300">{step.number}</span>
                 <h3 className="mt-3 text-base font-semibold text-neutral-900">{step.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-neutral-500">{step.description}</p>
@@ -127,7 +136,7 @@ export default async function Home() {
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
             {FEATURES.map((feature) => (
-              <div key={feature.title} className="rounded-xl border border-neutral-200 p-5 transition-colors hover:border-neutral-300">
+              <div key={feature.title} className="rounded-xl border border-neutral-200 p-5 transition-all hover:-translate-y-1 hover:border-neutral-300 hover:shadow-md">
                 <h3 className="text-sm font-semibold text-neutral-900">{feature.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-neutral-500">{feature.description}</p>
               </div>
@@ -140,8 +149,8 @@ export default async function Home() {
         <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Stop scripting the same systems over and over.</h2>
         <p className="mx-auto mt-3 max-w-md text-sm text-neutral-500">Pathfinder is in early access. Sign up now and be one of the first developers building with it.</p>
         <div className="mt-7">
-          <Link href={userId ? "/dashboard" : "/sign-up"} className="rounded-lg bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
-            {userId ? "Go to dashboard" : "Get early access"}
+          <Link href={isLoggedIn ? "/dashboard" : "/sign-in"} className="rounded-lg bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-all hover:scale-[1.03] hover:bg-neutral-800 active:scale-[0.97]">
+            {isLoggedIn ? "Go to dashboard" : "Get early access"}
           </Link>
         </div>
       </section>

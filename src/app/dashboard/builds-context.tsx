@@ -15,42 +15,46 @@ export interface BuildEntry {
   actions?: BuildAction[];
 }
 
-const SEED_BUILDS: BuildEntry[] = [
-  {
-    id: "bld_seed_1",
-    prompt: "Build a modern simulator game with pets, UI, datastores, NPCs, and a shop.",
-    status: "completed",
-    timestamp: "2h ago",
-    actions: [
-      { type: "UI", description: "Create shop interface with item listings" },
-      { type: "Script", description: "Add purchase and currency deduction logic" },
-      { type: "Datastore", description: "Create pet inventory datastore schema" },
-    ],
-  },
-  {
-    id: "bld_seed_2",
-    prompt: "Add a leaderboard UI showing top 10 players by coins.",
-    status: "failed",
-    timestamp: "5h ago",
-  },
-];
+export interface Project {
+  id: string;
+  name: string;
+  connectedAt: string;
+}
 
 interface BuildsContextValue {
   builds: BuildEntry[];
   addBuild: (build: BuildEntry) => void;
+  projects: Project[];
+  activeProject: Project | null;
+  addProject: (name: string) => void;
+  setActiveProject: (id: string) => void;
 }
 
 const BuildsContext = createContext<BuildsContextValue | null>(null);
 
 export function BuildsProvider({ children }: { children: ReactNode }) {
-  const [builds, setBuilds] = useState<BuildEntry[]>(SEED_BUILDS);
+  const [builds, setBuilds] = useState<BuildEntry[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
   function addBuild(build: BuildEntry) {
     setBuilds((prev) => [build, ...prev]);
   }
 
+  function addProject(name: string) {
+    const id = `proj_${Date.now()}`;
+    setProjects((prev) => [{ id, name, connectedAt: "just now" }, ...prev]);
+    setActiveProjectId(id);
+  }
+
+  function setActiveProject(id: string) {
+    setActiveProjectId(id);
+  }
+
+  const activeProject = projects.find((p) => p.id === activeProjectId) || null;
+
   return (
-    <BuildsContext.Provider value={{ builds, addBuild }}>
+    <BuildsContext.Provider value={{ builds, addBuild, projects, activeProject, addProject, setActiveProject }}>
       {children}
     </BuildsContext.Provider>
   );

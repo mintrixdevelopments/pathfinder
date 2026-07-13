@@ -1,11 +1,15 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import { auth } from "./auth";
 
-export default clerkMiddleware();
+export default auth((req) => {
+  const isLoggedIn = !!req.auth;
+  const isDashboard = req.nextUrl.pathname.startsWith("/dashboard");
+
+  if (isDashboard && !isLoggedIn) {
+    return NextResponse.redirect(new URL("/sign-in", req.nextUrl.origin));
+  }
+});
 
 export const config = {
-  matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-    "/__clerk/:path*",
-  ],
+  matcher: ["/dashboard/:path*"],
 };
