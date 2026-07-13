@@ -9,7 +9,7 @@ import { UserMenu } from "./user-menu";
 const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard", icon: "grid" },
   { label: "Builds", href: "/dashboard/builds", icon: "layers" },
-  { label: "Projects", href: "/dashboard/projects", icon: "folder" },
+  { label: "Initiatives", href: "/dashboard/initiatives", icon: "folder" },
   { label: "Settings", href: "/dashboard/settings", icon: "settings" },
 ] as const;
 

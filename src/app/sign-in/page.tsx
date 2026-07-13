@@ -24,6 +24,9 @@ export default function SignInPage() {
             Continue with Google
           </button>
         </form>
+        <p className="mt-4 text-xs text-neutral-400">
+          New here? <a href="/sign-up" className="font-medium text-neutral-700 underline">Sign up</a> — same Google button, it creates your account instantly.
+        </p>
       </div>
     </div>
   );

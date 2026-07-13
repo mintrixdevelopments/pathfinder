@@ -16,40 +16,39 @@ interface GenerateResponse {
 
 function fallbackReply(prompt: string): { message: string; actions: BuildAction[] } {
   const lower = prompt.toLowerCase();
-  const isGreeting = /^(hi|hey|hello|yo|sup|what's up)\b/.test(lower.trim());
+  const isGreeting = /^(hi|hey|hello|yo|sup|what's up|whats up)\b/.test(lower.trim());
 
   if (isGreeting) {
     return {
-      message: "Hey! I'm Pathfinder. Tell me what you want to build in your Roblox game — a shop, pets, a leaderboard, whatever — and I'll plan it out.",
+      message: "Hey, I'm Pathfinder. Tell me what to build in your Roblox game — a shop, a pet system, an entire game concept — and I'll break it down.",
       actions: [],
     };
   }
 
   const actions: BuildAction[] = [];
   if (lower.includes("shop") || lower.includes("store")) {
-    actions.push({ type: "UI", description: "Create shop interface with item listings" });
-    actions.push({ type: "Script", description: "Add purchase and currency deduction logic" });
+    actions.push({ type: "UI", description: "Shop interface with item listings" });
+    actions.push({ type: "Script", description: "Purchase and currency deduction logic" });
   }
   if (lower.includes("pet")) {
-    actions.push({ type: "Datastore", description: "Create pet inventory datastore schema" });
-    actions.push({ type: "Model", description: "Set up pet equip and follow behavior" });
+    actions.push({ type: "Datastore", description: "Pet inventory datastore schema" });
+    actions.push({ type: "Model", description: "Pet equip and follow behavior" });
   }
   if (lower.includes("npc")) {
-    actions.push({ type: "Script", description: "Add NPC with dialogue or interaction trigger" });
+    actions.push({ type: "Script", description: "NPC with dialogue or interaction trigger" });
   }
   if (lower.includes("leaderboard")) {
-    actions.push({ type: "UI", description: "Create leaderboard UI sorted by stat" });
-    actions.push({ type: "Datastore", description: "Add ordered datastore for leaderboard ranking" });
+    actions.push({ type: "UI", description: "Leaderboard UI sorted by stat" });
+    actions.push({ type: "Datastore", description: "Ordered datastore for ranking" });
   }
   if (actions.length === 0) {
     return {
-      message: "I'm not sure what to build from that yet — try describing a specific feature, like \"add a shop\" or \"create a pet system.\"",
+      message: "I'm not sure what to build from that yet — try describing a specific feature or system.",
       actions: [],
     };
   }
 
-  const types = Array.from(new Set(actions.map((a) => a.type)));
-  return { message: `Got it — here's the plan (${types.join(", ")}):`, actions };
+  return { message: "On it. Breaking this into pieces:", actions };
 }
 
 async function generateWithGemini(
@@ -58,16 +57,19 @@ async function generateWithGemini(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
-  const systemPrompt = `You are Pathfinder, an AI Roblox developer built into a chat interface. A user is talking to you.
+  const systemPrompt = `You are Pathfinder, an AI Roblox developer. You are talking directly to a developer in a chat interface.
 
-Decide what kind of message this is:
-- If it is a greeting, small talk, or a question about what you can do: reply conversationally and warmly, introduce yourself briefly if it is a first greeting, and invite them to describe a build. Return an empty actions array.
-- If it is an actual request to build or change something in their Roblox game: write a short, natural one-sentence reply confirming what you are about to do, and break the work into concrete build actions. SCALE THE NUMBER OF ACTIONS TO THE COMPLEXITY OF THE REQUEST. A simple request ("add a spawn point") might be 1-2 actions. A moderate request ("add a shop") might be 3-5 actions. A large, complex request ("build a highly realistic PVP shooter with advanced graphics") should be 6-12 actions, covering distinct systems: weapon mechanics, movement, environment/graphics, UI/HUD, matchmaking or spawning, sound, and any other systems a real developer would actually need to build. Do not compress a complex request into a handful of vague, high-level bullets — break it into the same granular steps a senior Roblox developer would actually implement one by one.
+Decide what this message needs:
+- Greeting, small talk, or a question about you: reply warmly and briefly in first person, invite them to describe something to build. actions must be [].
+- An actual build request: reply with ONE short first-person sentence confirming what you're doing (e.g. "On it, setting up the core systems:"), never say "here's the plan" or "here's a plan" verbatim. Then break the work into concrete build actions.
 
-Respond ONLY with valid JSON, no markdown, in this exact shape:
-{"message": "your natural conversational reply, 1-2 sentences", "actions": [{"type": "UI" | "Script" | "Datastore" | "Model", "description": "short concrete description"}]}
+SCALE ACTION COUNT TO COMPLEXITY. This is critical:
+- Trivial request (one small addition): 1-3 actions.
+- Moderate feature (a shop, a leaderboard): 3-6 actions.
+- A full game or complex system (e.g. "a realistic PVP shooter", "a simulator game"): 8-14 actions, covering every distinct system a senior Roblox developer would actually build: core mechanics/combat, movement/physics, environment/level design, UI/HUD, matchmaking or spawning, sound/feedback, progression/currency, and polish. Never compress a big request into a handful of vague bullets — go granular, the way a real dev would break down a sprint.
 
-If there's nothing to build, actions must be an empty array [].
+Respond ONLY with valid JSON, no markdown:
+{"message": "one short first-person sentence", "actions": [{"type": "UI" | "Script" | "Datastore" | "Model", "description": "specific, concrete description"}]}
 
 User message: ${prompt}`;
 
@@ -93,7 +95,6 @@ User message: ${prompt}`;
 
     const cleaned = text.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleaned);
-
     if (typeof parsed.message !== "string" || !Array.isArray(parsed.actions)) return null;
 
     return {
