@@ -9,15 +9,23 @@ interface BuildAction {
 interface GenerateResponse {
   id: string;
   prompt: string;
+  message: string;
   actions: BuildAction[];
-  status: "planned";
-  summary: string;
+  status: "planned" | "chat";
 }
 
-function fallbackPlan(prompt: string): BuildAction[] {
+function fallbackReply(prompt: string): { message: string; actions: BuildAction[] } {
   const lower = prompt.toLowerCase();
-  const actions: BuildAction[] = [];
+  const isGreeting = /^(hi|hey|hello|yo|sup|what's up)\b/.test(lower.trim());
 
+  if (isGreeting) {
+    return {
+      message: "Hey! I'm Pathfinder. Tell me what you want to build in your Roblox game — a shop, pets, a leaderboard, whatever — and I'll plan it out.",
+      actions: [],
+    };
+  }
+
+  const actions: BuildAction[] = [];
   if (lower.includes("shop") || lower.includes("store")) {
     actions.push({ type: "UI", description: "Create shop interface with item listings" });
     actions.push({ type: "Script", description: "Add purchase and currency deduction logic" });
@@ -33,40 +41,43 @@ function fallbackPlan(prompt: string): BuildAction[] {
     actions.push({ type: "UI", description: "Create leaderboard UI sorted by stat" });
     actions.push({ type: "Datastore", description: "Add ordered datastore for leaderboard ranking" });
   }
-  if (lower.includes("datastore") || lower.includes("save")) {
-    actions.push({ type: "Datastore", description: "Add player data save/load module" });
-  }
   if (actions.length === 0) {
-    actions.push({ type: "Script", description: "Analyze prompt and scaffold base script structure" });
+    return {
+      message: "I'm not sure what to build from that yet — try describing a specific feature, like \"add a shop\" or \"create a pet system.\"",
+      actions: [],
+    };
   }
-  return actions;
-}
 
-function buildSummary(actions: BuildAction[]): string {
   const types = Array.from(new Set(actions.map((a) => a.type)));
-  const stepWord = actions.length === 1 ? "step" : "steps";
-  return `${actions.length} ${stepWord} across ${types.join(", ")}`;
+  return { message: `Got it — here's the plan (${types.join(", ")}):`, actions };
 }
 
-async function generateWithGemini(prompt: string): Promise<BuildAction[] | null> {
+async function generateWithGemini(
+  prompt: string
+): Promise<{ message: string; actions: BuildAction[] } | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
-  const systemPrompt = `You are Pathfinder, an AI Roblox developer. Given a user's build request, break it into a short list of concrete build actions. Respond ONLY with valid JSON, no markdown, no explanation, in this exact shape:
-{"actions": [{"type": "UI" | "Script" | "Datastore" | "Model", "description": "short concrete description"}]}
-Keep it to 2-5 actions. Be specific to Roblox development (scripts, UI, datastores, NPCs, models).
+  const systemPrompt = `You are Pathfinder, an AI Roblox developer built into a chat interface. A user is talking to you.
 
-User request: ${prompt}`;
+Decide what kind of message this is:
+- If it's a greeting, small talk, or a question about what you can do: reply conversationally and warmly, introduce yourself briefly if it's a first greeting, and invite them to describe a build. Return an empty actions array.
+- If it's an actual request to build or change something in their Roblox game: write a short, natural one-sentence reply confirming what you're about to do, and break the work into 2-5 concrete build actions.
+
+Respond ONLY with valid JSON, no markdown, in this exact shape:
+{"message": "your natural conversational reply, 1-2 sentences", "actions": [{"type": "UI" | "Script" | "Datastore" | "Model", "description": "short concrete description"}]}
+
+If there's nothing to build, actions must be an empty array [].
+
+User message: ${prompt}`;
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: systemPrompt }] }],
-        }),
+        body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] }),
       }
     );
 
@@ -82,12 +93,16 @@ User request: ${prompt}`;
 
     const cleaned = text.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleaned);
-    if (!Array.isArray(parsed.actions)) return null;
 
-    return parsed.actions.filter(
-      (a: unknown): a is BuildAction =>
-        typeof a === "object" && a !== null && "type" in a && "description" in a
-    );
+    if (typeof parsed.message !== "string" || !Array.isArray(parsed.actions)) return null;
+
+    return {
+      message: parsed.message,
+      actions: parsed.actions.filter(
+        (a: unknown): a is BuildAction =>
+          typeof a === "object" && a !== null && "type" in a && "description" in a
+      ),
+    };
   } catch (err) {
     console.error("Gemini request failed:", err);
     return null;
@@ -107,17 +122,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   }
 
-  let actions = await generateWithGemini(prompt.trim());
-  if (!actions || actions.length === 0) {
-    actions = fallbackPlan(prompt.trim());
+  let result = await generateWithGemini(prompt.trim());
+  if (!result) {
+    result = fallbackReply(prompt.trim());
   }
 
   const response: GenerateResponse = {
     id: `bld_${Date.now()}`,
     prompt: prompt.trim(),
-    actions,
-    status: "planned",
-    summary: buildSummary(actions),
+    message: result.message,
+    actions: result.actions,
+    status: result.actions.length > 0 ? "planned" : "chat",
   };
 
   return NextResponse.json(response);
