@@ -41,19 +41,14 @@ function TypingDots() {
 function StatusBadge({ status }: { status: BadgeStatus }) {
   if (status === "pending") {
     return (
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1, opacity: [1, 0.55, 1] }}
-        transition={{ opacity: { duration: 1.1, repeat: Infinity, ease: "easeInOut" }, scale: { type: "spring", stiffness: 500, damping: 20 } }}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500"
-      >
+      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
         <span className="text-[11px] font-bold leading-none text-white">!</span>
       </motion.div>
     );
   }
   if (status === "blocked") {
     return (
-      <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500">
+      <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#ef4444" }}>
         <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" className="h-3 w-3">
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
@@ -61,7 +56,7 @@ function StatusBadge({ status }: { status: BadgeStatus }) {
     );
   }
   return (
-    <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+    <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#10b981" }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
         <path d="M20 6 9 17l-5-5" />
       </svg>
@@ -120,12 +115,37 @@ function ModelSelector() {
   );
 }
 
+function GenerationMeter({ count, limit }: { count: number; limit: number }) {
+  const remaining = limit - count;
+  const pct = Math.min(100, (count / limit) * 100);
+  const theme = remaining <= 0
+    ? { bar: "#ef4444", text: "text-red-700", bg: "bg-red-50", border: "border-red-200" }
+    : remaining <= 3
+    ? { bar: "#f59e0b", text: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" }
+    : { bar: "#10b981", text: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200" };
+
+  return (
+    <div className={`flex flex-1 items-center gap-3 rounded-lg border ${theme.border} ${theme.bg} px-3 py-2`}>
+      <div className="flex flex-1 flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-semibold ${theme.text}`}>Daily builds</span>
+          <span className={`text-xs font-semibold ${theme.text}`}>{count} / {limit}</span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white">
+          <motion.div className="h-full rounded-full" style={{ backgroundColor: theme.bar }} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.4, ease: "easeOut" }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { addBuild, activeProject } = useBuilds();
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [genCount, setGenCount] = useState(0);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -161,7 +181,7 @@ export default function DashboardPage() {
       return;
     }
     if (genCount >= DAILY_LIMIT) {
-      setMessages((prev) => [...prev, { id: `sys_${Date.now()}`, role: "system", content: `You've used all ${DAILY_LIMIT} free generations today. More tomorrow!` }]);
+      setShowLimitModal(true);
       return;
     }
 
@@ -215,14 +235,17 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col px-6 py-6">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center gap-3">
         <ModelSelector />
-        <span className="text-xs text-muted">{genCount}/{DAILY_LIMIT} today</span>
+        <GenerationMeter count={genCount} limit={DAILY_LIMIT} />
       </div>
 
       <AnimatePresence>
         {!activeProject && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4 overflow-hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4 flex items-center gap-2.5 overflow-hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
+              <span className="text-[11px] font-bold leading-none text-white">!</span>
+            </span>
             No initiative selected. <a href="/dashboard/initiatives" className="font-medium underline">Start or select one</a> before I can help with builds.
           </motion.div>
         )}
@@ -244,7 +267,12 @@ export default function DashboardPage() {
                 if (msg.role === "system") {
                   return (
                     <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
-                      <div className="max-w-[90%] rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-sm text-amber-800">{msg.content}</div>
+                      <div className="flex max-w-[90%] items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
+                          <span className="text-[11px] font-bold leading-none text-white">!</span>
+                        </span>
+                        {msg.content}
+                      </div>
                     </motion.div>
                   );
                 }
@@ -257,7 +285,7 @@ export default function DashboardPage() {
                 }
                 return (
                   <motion.div key={msg.id} initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex justify-start">
-                    <div className={`max-w-[85%] rounded-2xl rounded-tl-sm border px-4 py-3 text-sm ${msg.badgeStatus === "blocked" ? "border-red-200 bg-red-50 text-red-700" : "border-border bg-surface text-foreground"}`}>
+                    <div className={`max-w-[85%] rounded-2xl rounded-tl-sm border px-4 py-3 text-sm ${msg.badgeStatus === "blocked" ? "border-red-300 bg-red-100 text-red-800" : "border-border bg-surface text-foreground"}`}>
                       <div className="flex items-center gap-2">
                         {msg.badgeStatus && <StatusBadge status={msg.badgeStatus} />}
                         {msg.badgeStatus === "pending" ? <TypingDots /> : <p className="font-medium">{msg.content}</p>}
@@ -296,6 +324,25 @@ export default function DashboardPage() {
           </motion.button>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {showLimitModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowLimitModal(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <motion.div onClick={(e) => e.stopPropagation()} initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.92, opacity: 0 }} transition={{ type: "spring", stiffness: 400, damping: 30 }} className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
+                <span className="text-xl font-bold leading-none text-white">!</span>
+              </div>
+              <h2 className="mt-4 text-lg font-semibold text-neutral-900">Daily limit reached</h2>
+              <p className="mt-2 text-sm text-neutral-500">
+                You've used all {DAILY_LIMIT} free builds today. Your limit resets at midnight — come back tomorrow to keep building.
+              </p>
+              <button onClick={() => setShowLimitModal(false)} className="mt-5 w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
+                Got it
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
