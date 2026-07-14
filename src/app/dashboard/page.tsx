@@ -4,13 +4,15 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBuilds, type BuildAction } from "./builds-context";
 
+type BadgeStatus = "pending" | "success" | "blocked";
+
 interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
   actions?: BuildAction[];
   suggestions?: string[];
-  isError?: boolean;
+  badgeStatus?: BadgeStatus;
 }
 
 const STARTER_SUGGESTIONS = [
@@ -19,6 +21,12 @@ const STARTER_SUGGESTIONS = [
   "Create a PvP arena with weapon mechanics",
   "Add a leaderboard tracking player wins",
 ];
+
+const DAILY_LIMIT = 15;
+
+function getTodayKey() {
+  return `pf_generations_${new Date().toISOString().slice(0, 10)}`;
+}
 
 function TypingDots() {
   return (
@@ -30,9 +38,30 @@ function TypingDots() {
   );
 }
 
-function CompleteBadge() {
+function StatusBadge({ status }: { status: BadgeStatus }) {
+  if (status === "pending") {
+    return (
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1, opacity: [1, 0.55, 1] }}
+        transition={{ opacity: { duration: 1.1, repeat: Infinity, ease: "easeInOut" }, scale: { type: "spring", stiffness: 500, damping: 20 } }}
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500"
+      >
+        <span className="text-[11px] font-bold leading-none text-white">!</span>
+      </motion.div>
+    );
+  }
+  if (status === "blocked") {
+    return (
+      <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" className="h-3 w-3">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </motion.div>
+    );
+  }
   return (
-    <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20, delay: 0.15 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+    <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500">
       <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
         <path d="M20 6 9 17l-5-5" />
       </svg>
@@ -42,23 +71,52 @@ function CompleteBadge() {
 
 function SuggestionChips({ items, onPick }: { items: string[]; onPick: (text: string) => void }) {
   return (
-    <motion.div
-      className="flex flex-wrap gap-1.5"
-      initial="hidden"
-      animate="show"
-      variants={{ show: { transition: { staggerChildren: 0.05 } } }}
-    >
+    <motion.div className="flex flex-wrap gap-1.5" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.05 } } }}>
       {items.map((s, i) => (
-        <motion.button
-          key={i}
-          variants={{ hidden: { opacity: 0, y: 4 }, show: { opacity: 1, y: 0 } }}
-          onClick={() => onPick(s)}
-          className="rounded-full border border-border bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-        >
+        <motion.button key={i} variants={{ hidden: { opacity: 0, y: 4 }, show: { opacity: 1, y: 0 } }} onClick={() => onPick(s)} className="rounded-full border border-border bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-neutral-300 hover:bg-neutral-50">
           {s}
         </motion.button>
       ))}
     </motion.div>
+  );
+}
+
+function ModelSelector() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-neutral-300">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        Gemini 3.1 Flash Lite
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 text-neutral-400">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="absolute left-0 top-full z-20 mt-1 w-60 rounded-lg border border-border bg-white p-1 shadow-lg">
+          <div className="flex items-center justify-between rounded-md bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-900">
+            Gemini 3.1 Flash Lite
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-emerald-500">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </div>
+          <div className="mt-1 flex items-center justify-between rounded-md px-3 py-2 text-xs text-neutral-400">
+            More models
+            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px]">Coming soon</span>
+          </div>
+        </motion.div>
+      )}
+    </div>
   );
 }
 
@@ -67,8 +125,14 @@ export default function DashboardPage() {
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [genCount, setGenCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(getTodayKey());
+    setGenCount(raw ? parseInt(raw, 10) : 0);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -81,9 +145,28 @@ export default function DashboardPage() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [prompt]);
 
+  function incrementGenCount() {
+    setGenCount((prev) => {
+      const next = prev + 1;
+      window.localStorage.setItem(getTodayKey(), String(next));
+      return next;
+    });
+  }
+
   async function sendPrompt(text: string) {
     if (!text.trim() || isGenerating) return;
-    setMessages((prev) => [...prev, { id: `u_${Date.now()}`, role: "user", content: text }]);
+
+    if (!activeProject) {
+      setMessages((prev) => [...prev, { id: `sys_${Date.now()}`, role: "system", content: "You need an initiative selected before I can help. Head to Initiatives and start or select one first." }]);
+      return;
+    }
+    if (genCount >= DAILY_LIMIT) {
+      setMessages((prev) => [...prev, { id: `sys_${Date.now()}`, role: "system", content: `You've used all ${DAILY_LIMIT} free generations today. More tomorrow!` }]);
+      return;
+    }
+
+    const pendingId = `a_${Date.now()}`;
+    setMessages((prev) => [...prev, { id: `u_${Date.now()}`, role: "user", content: text }, { id: pendingId, role: "assistant", content: "", badgeStatus: "pending" }]);
     setPrompt("");
     setIsGenerating(true);
 
@@ -97,14 +180,27 @@ export default function DashboardPage() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to generate");
       }
-      const data: { id: string; prompt: string; message: string; actions: BuildAction[]; suggestions: string[]; status: "planned" | "chat" } = await res.json();
+      const data: { id: string; prompt: string; message: string; actions: BuildAction[]; suggestions: string[]; status: "planned" | "chat" | "blocked" } = await res.json();
 
-      setMessages((prev) => [...prev, { id: `a_${data.id}`, role: "assistant", content: data.message, actions: data.actions, suggestions: data.suggestions }]);
-      if (data.actions.length > 0) {
+      incrementGenCount();
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === pendingId
+            ? { ...m, content: data.message, actions: data.actions, suggestions: data.suggestions, badgeStatus: data.status === "blocked" ? "blocked" : "success" }
+            : m
+        )
+      );
+
+      if (data.status === "planned" && data.actions.length > 0) {
         addBuild({ id: data.id, prompt: data.prompt, status: "planned", timestamp: "just now", actions: data.actions });
       }
     } catch (err) {
-      setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: err instanceof Error ? err.message : "Something went wrong.", isError: true }]);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === pendingId ? { ...m, content: err instanceof Error ? err.message : "Something went wrong.", badgeStatus: "blocked" } : m
+        )
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -118,14 +214,25 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col px-6 py-8">
+    <div className="mx-auto flex h-full max-w-3xl flex-col px-6 py-6">
+      <div className="mb-3 flex items-center justify-between">
+        <ModelSelector />
+        <span className="text-xs text-muted">{genCount}/{DAILY_LIMIT} today</span>
+      </div>
+
+      <AnimatePresence>
+        {!activeProject && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4 overflow-hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+            No initiative selected. <a href="/dashboard/initiatives" className="font-medium underline">Start or select one</a> before I can help with builds.
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex-1 overflow-y-auto">
         {messages.length === 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex h-full flex-col items-center justify-center text-center">
             <h1 className="text-xl font-semibold tracking-tight">What do you want to build?</h1>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              Describe a feature, system, or entire game. Pathfinder will break it down.
-            </p>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">Describe a feature, system, or entire game. Pathfinder will break it down.</p>
             <div className="mt-6 max-w-md">
               <SuggestionChips items={STARTER_SUGGESTIONS} onPick={(s) => setPrompt(s)} />
             </div>
@@ -133,17 +240,27 @@ export default function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-4 pb-4">
             <AnimatePresence initial={false}>
-              {messages.map((msg) =>
-                msg.role === "user" ? (
-                  <motion.div key={msg.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="flex justify-end">
-                    <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-accent px-4 py-2.5 text-sm text-white">{msg.content}</div>
-                  </motion.div>
-                ) : (
+              {messages.map((msg) => {
+                if (msg.role === "system") {
+                  return (
+                    <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
+                      <div className="max-w-[90%] rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-sm text-amber-800">{msg.content}</div>
+                    </motion.div>
+                  );
+                }
+                if (msg.role === "user") {
+                  return (
+                    <motion.div key={msg.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="flex justify-end">
+                      <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-accent px-4 py-2.5 text-sm text-white">{msg.content}</div>
+                    </motion.div>
+                  );
+                }
+                return (
                   <motion.div key={msg.id} initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex justify-start">
-                    <div className={`max-w-[85%] rounded-2xl rounded-tl-sm border px-4 py-3 text-sm ${msg.isError ? "border-red-200 bg-red-50 text-red-700" : "border-border bg-surface text-foreground"}`}>
+                    <div className={`max-w-[85%] rounded-2xl rounded-tl-sm border px-4 py-3 text-sm ${msg.badgeStatus === "blocked" ? "border-red-200 bg-red-50 text-red-700" : "border-border bg-surface text-foreground"}`}>
                       <div className="flex items-center gap-2">
-                        {!msg.isError && msg.actions && msg.actions.length > 0 && <CompleteBadge />}
-                        <p className="font-medium">{msg.content}</p>
+                        {msg.badgeStatus && <StatusBadge status={msg.badgeStatus} />}
+                        {msg.badgeStatus === "pending" ? <TypingDots /> : <p className="font-medium">{msg.content}</p>}
                       </div>
                       {msg.actions && msg.actions.length > 0 && (
                         <motion.div className="mt-2.5 flex flex-col gap-1.5 border-t border-border pt-2.5" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.04 } } }}>
@@ -162,15 +279,8 @@ export default function DashboardPage() {
                       )}
                     </div>
                   </motion.div>
-                )
-              )}
-              {isGenerating && (
-                <motion.div key="typing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex justify-start">
-                  <div className="rounded-2xl rounded-tl-sm border border-border bg-surface px-3 py-2">
-                    <TypingDots />
-                  </div>
-                </motion.div>
-              )}
+                );
+              })}
             </AnimatePresence>
             <div ref={bottomRef} />
           </div>
@@ -180,9 +290,7 @@ export default function DashboardPage() {
       <motion.div layout className="mt-4 rounded-xl border border-border bg-surface transition-all focus-within:border-neutral-400 focus-within:ring-4 focus-within:ring-neutral-100">
         <textarea ref={textareaRef} value={prompt} onChange={(e) => setPrompt(e.target.value)} onKeyDown={handleKeyDown} placeholder="Build a highly realistic PVP shooter with weapon mechanics, movement, and a HUD." rows={3} className="w-full resize-none bg-transparent px-4 py-3 text-sm placeholder:text-muted focus:outline-none" />
         <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
-          <span className="text-xs text-muted">
-            {activeProject ? `Initiative: ${activeProject.name}` : "No initiative selected yet"}
-          </span>
+          <span className="text-xs text-muted">{activeProject ? `Initiative: ${activeProject.name}` : "No initiative selected"}</span>
           <motion.button whileTap={{ scale: 0.96 }} onClick={() => sendPrompt(prompt)} disabled={!prompt.trim() || isGenerating} className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
             {isGenerating ? "Thinking…" : "Send"}
           </motion.button>

@@ -43,7 +43,7 @@ export default async function Home() {
   return (
     <div className="flex min-h-screen flex-col overflow-hidden bg-white text-neutral-900">
       <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-10">
-        <span className="flex items-center gap-2 text-lg font-semibold tracking-tight"><img src="/logo-icon.png" alt="" className="h-6 w-6" />Pathfinder</span>
+        <Link href="/"><img src="/logo-full.png" alt="Pathfinder" className="h-7 w-auto" /></Link>
         <nav className="flex items-center gap-3">
           <Link href="/donate" className="hidden text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-900 sm:block">
             Donate
