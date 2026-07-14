@@ -11,17 +11,35 @@ interface GenerateResponse {
   prompt: string;
   message: string;
   actions: BuildAction[];
+  suggestions: string[];
   status: "planned" | "chat";
 }
 
-function fallbackReply(prompt: string): { message: string; actions: BuildAction[] } {
-  const lower = prompt.toLowerCase();
-  const isGreeting = /^(hi|hey|hello|yo|sup|what's up|whats up)\b/.test(lower.trim());
+const DEFAULT_SUGGESTIONS = [
+  "Add a shop with rarities and a purchase UI",
+  "Build a pet system with equip and follow behavior",
+  "Create a PvP arena with weapon mechanics",
+  "Add a leaderboard tracking player wins",
+];
+
+function fallbackReply(prompt: string): { message: string; actions: BuildAction[]; suggestions: string[] } {
+  const lower = prompt.toLowerCase().trim();
+  const isGreeting = /^(hi|hey|hello|yo|sup|what's up|whats up)\b/.test(lower);
+  const isUnsure = /^(idk|i don't know|i dont know|not sure|dunno|anything|something|whatever|no idea|not sure yet)\b/.test(lower);
 
   if (isGreeting) {
     return {
-      message: "Hey, I'm Pathfinder. Tell me what to build in your Roblox game — a shop, a pet system, an entire game concept — and I'll break it down.",
+      message: "Hey, I'm Pathfinder. Tell me what to build in your Roblox game and I'll break it down.",
       actions: [],
+      suggestions: DEFAULT_SUGGESTIONS,
+    };
+  }
+
+  if (isUnsure || lower.length < 3) {
+    return {
+      message: "No worries — here are a few ideas to get started, or describe your own:",
+      actions: [],
+      suggestions: DEFAULT_SUGGESTIONS,
     };
   }
 
@@ -43,33 +61,33 @@ function fallbackReply(prompt: string): { message: string; actions: BuildAction[
   }
   if (actions.length === 0) {
     return {
-      message: "I'm not sure what to build from that yet — try describing a specific feature or system.",
+      message: "I'm not sure what to build from that yet — try one of these, or describe your own:",
       actions: [],
+      suggestions: DEFAULT_SUGGESTIONS,
     };
   }
 
-  return { message: "On it. Breaking this into pieces:", actions };
+  return { message: "On it. Breaking this into pieces:", actions, suggestions: [] };
 }
 
 async function generateWithGemini(
   prompt: string
-): Promise<{ message: string; actions: BuildAction[] } | null> {
+): Promise<{ message: string; actions: BuildAction[]; suggestions: string[] } | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
   const systemPrompt = `You are Pathfinder, an AI Roblox developer. You are talking directly to a developer in a chat interface.
 
-Decide what this message needs:
-- Greeting, small talk, or a question about you: reply warmly and briefly in first person, invite them to describe something to build. actions must be [].
-- An actual build request: reply with ONE short first-person sentence confirming what you're doing (e.g. "On it, setting up the core systems:"), never say "here's the plan" or "here's a plan" verbatim. Then break the work into concrete build actions.
+Classify the message into exactly one of these:
 
-SCALE ACTION COUNT TO COMPLEXITY. This is critical:
-- Trivial request (one small addition): 1-3 actions.
-- Moderate feature (a shop, a leaderboard): 3-6 actions.
-- A full game or complex system (e.g. "a realistic PVP shooter", "a simulator game"): 8-14 actions, covering every distinct system a senior Roblox developer would actually build: core mechanics/combat, movement/physics, environment/level design, UI/HUD, matchmaking or spawning, sound/feedback, progression/currency, and polish. Never compress a big request into a handful of vague bullets — go granular, the way a real dev would break down a sprint.
+1. GREETING/SMALL TALK (e.g. "hi", "hello", "what can you do") — reply warmly and briefly in first person, invite them to describe something to build. actions: [], suggestions: 3-4 concrete example build ideas.
+
+2. UNCLEAR/UNDECIDED (e.g. "idk", "not sure", "something cool", "surprise me", or anything too vague to act on) — acknowledge briefly, do NOT just say hello, and offer 3-4 concrete, specific build ideas as suggestions. actions: [].
+
+3. ACTUAL BUILD REQUEST — reply with ONE short first-person sentence confirming what you're doing (never say "here's the plan" verbatim). Break the work into concrete build actions. SCALE COUNT TO COMPLEXITY: trivial = 1-3 actions, moderate (a shop, a leaderboard) = 3-6 actions, a full game or complex system (e.g. "realistic PVP shooter", "simulator game") = 8-14 actions covering every distinct system a real developer would build (mechanics, movement, environment, UI/HUD, spawning/matchmaking, sound, progression, polish). suggestions: [].
 
 Respond ONLY with valid JSON, no markdown:
-{"message": "one short first-person sentence", "actions": [{"type": "UI" | "Script" | "Datastore" | "Model", "description": "specific, concrete description"}]}
+{"message": "short first-person reply", "actions": [{"type": "UI" | "Script" | "Datastore" | "Model", "description": "specific description"}], "suggestions": ["idea 1", "idea 2"]}
 
 User message: ${prompt}`;
 
@@ -103,6 +121,7 @@ User message: ${prompt}`;
         (a: unknown): a is BuildAction =>
           typeof a === "object" && a !== null && "type" in a && "description" in a
       ),
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 4) : [],
     };
   } catch (err) {
     console.error("Gemini request failed:", err);
@@ -133,6 +152,7 @@ export async function POST(request: Request) {
     prompt: prompt.trim(),
     message: result.message,
     actions: result.actions,
+    suggestions: result.suggestions,
     status: result.actions.length > 0 ? "planned" : "chat",
   };
 
