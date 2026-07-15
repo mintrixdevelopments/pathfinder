@@ -1,5 +1,8 @@
 import { auth } from "../../../auth";
 import { NextResponse } from "next/server";
+import { redisGet, redisIncr } from "../../../lib/redis";
+
+const BASE_DAILY_LIMIT = 15;
 
 interface BuildAction {
   type: string;
@@ -13,6 +16,8 @@ interface GenerateResponse {
   actions: BuildAction[];
   suggestions: string[];
   status: "planned" | "chat" | "blocked";
+  creditsUsed: number;
+  creditsLimit: number;
 }
 
 const DEFAULT_SUGGESTIONS = [
@@ -21,6 +26,20 @@ const DEFAULT_SUGGESTIONS = [
   "Create a PvP arena with weapon mechanics",
   "Add a leaderboard tracking player wins",
 ];
+
+function todayKey(email: string) {
+  return `pf:usage:${email}:${new Date().toISOString().slice(0, 10)}`;
+}
+
+async function getCreditState(email: string) {
+  const [usageRaw, bonusRaw] = await Promise.all([
+    redisGet(todayKey(email)),
+    redisGet(`pf:bonuscredits:${email}`),
+  ]);
+  const used = usageRaw ? parseInt(usageRaw, 10) : 0;
+  const bonus = bonusRaw ? parseInt(bonusRaw, 10) : 0;
+  return { used, limit: BASE_DAILY_LIMIT + bonus };
+}
 
 function fallbackReply(prompt: string): { message: string; actions: BuildAction[]; suggestions: string[]; blocked: boolean } {
   const lower = prompt.toLowerCase().trim();
@@ -68,11 +87,11 @@ Classify the message into exactly one category:
 
 1. GREETING/SMALL TALK — reply warmly and briefly in first person, invite them to describe a build. actions: [], suggestions: 3-4 concrete build ideas, blocked: false.
 
-2. UNCLEAR/UNDECIDED (e.g. "idk", "surprise me", too vague to act on) — acknowledge briefly, offer 3-4 concrete build ideas as suggestions. actions: [], blocked: false.
+2. UNCLEAR/UNDECIDED — acknowledge briefly, offer 3-4 concrete build ideas as suggestions. actions: [], blocked: false.
 
-3. ACTUAL BUILD REQUEST — reply with ONE short first-person sentence confirming what you're doing (never say "here's the plan" verbatim). Break the work into concrete build actions. SCALE COUNT TO COMPLEXITY: trivial = 1-3 actions, moderate (a shop, a leaderboard) = 3-6 actions, a full game or complex system = 8-14 actions covering every distinct system a real developer would build. suggestions: [], blocked: false.
+3. ACTUAL BUILD REQUEST — reply with ONE short first-person sentence confirming what you're doing (never say "here's the plan" verbatim). Break the work into concrete build actions. SCALE COUNT TO COMPLEXITY: trivial = 1-3 actions, moderate = 3-6 actions, a full game or complex system = 8-14 actions. suggestions: [], blocked: false.
 
-4. OFFENSIVE OR POLICY-VIOLATING (hate speech, harassment, sexual content, requests for malware/cheats/exploits, or anything violating Roblox's Community Standards or basic safety norms) — reply with a brief, firm, first-person refusal (1-2 sentences), explain you can't help with that. actions: [], suggestions: [], blocked: true.
+4. OFFENSIVE OR POLICY-VIOLATING — reply with a brief, firm, first-person refusal (1-2 sentences). actions: [], suggestions: [], blocked: true.
 
 Respond ONLY with valid JSON, no markdown:
 {"message": "short first-person reply", "actions": [{"type": "UI" | "Script" | "Datastore" | "Model", "description": "specific description"}], "suggestions": ["idea"], "blocked": false}
@@ -88,27 +107,19 @@ User message: ${prompt}`;
         body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] }),
       }
     );
-
     if (!res.ok) {
-      const errText = await res.text();
-      console.error("Gemini API error:", res.status, errText);
+      console.error("Gemini API error:", res.status, await res.text());
       return null;
     }
-
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) return null;
-
     const cleaned = text.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(cleaned);
     if (typeof parsed.message !== "string" || !Array.isArray(parsed.actions)) return null;
-
     return {
       message: parsed.message,
-      actions: parsed.actions.filter(
-        (a: unknown): a is BuildAction =>
-          typeof a === "object" && a !== null && "type" in a && "description" in a
-      ),
+      actions: parsed.actions.filter((a: unknown): a is BuildAction => typeof a === "object" && a !== null && "type" in a && "description" in a),
       suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 4) : [],
       blocked: parsed.blocked === true,
     };
@@ -118,17 +129,31 @@ User message: ${prompt}`;
   }
 }
 
-export async function POST(request: Request) {
+export async function GET() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const state = await getCreditState(session.user.email);
+  return NextResponse.json(state);
+}
+
+export async function POST(request: Request) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const email = session.user.email;
 
   const body = await request.json().catch(() => null);
   const prompt = body?.prompt;
-
   if (typeof prompt !== "string" || prompt.trim().length === 0) {
     return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+  }
+
+  const { used, limit } = await getCreditState(email);
+  if (used >= limit) {
+    return NextResponse.json({ error: "OUT_OF_CREDITS", creditsUsed: used, creditsLimit: limit }, { status: 429 });
   }
 
   let result = await generateWithGemini(prompt.trim());
@@ -136,11 +161,9 @@ export async function POST(request: Request) {
     result = fallbackReply(prompt.trim());
   }
 
-  const status: "planned" | "chat" | "blocked" = result.blocked
-    ? "blocked"
-    : result.actions.length > 0
-    ? "planned"
-    : "chat";
+  const newUsed = await redisIncr(todayKey(email));
+
+  const status: "planned" | "chat" | "blocked" = result.blocked ? "blocked" : result.actions.length > 0 ? "planned" : "chat";
 
   const response: GenerateResponse = {
     id: `bld_${Date.now()}`,
@@ -149,6 +172,8 @@ export async function POST(request: Request) {
     actions: result.actions,
     suggestions: result.suggestions,
     status,
+    creditsUsed: newUsed,
+    creditsLimit: limit,
   };
 
   return NextResponse.json(response);

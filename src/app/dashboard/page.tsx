@@ -332,9 +332,9 @@ export default function DashboardPage() {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
                 <span className="text-xl font-bold leading-none text-white">!</span>
               </div>
-              <h2 className="mt-4 text-lg font-semibold text-neutral-900">Daily limit reached</h2>
+              <h2 className="mt-4 text-lg font-semibold text-neutral-900">Out of credits for today</h2>
               <p className="mt-2 text-sm text-neutral-500">
-                You've used all {DAILY_LIMIT} free builds today. Your limit resets at midnight — come back tomorrow to keep building.
+                You're out of free credits for today. They reset at midnight — or invite friends to earn more (coming very soon).
               </p>
               <button onClick={() => setShowLimitModal(false)} className="mt-5 w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
                 Got it
