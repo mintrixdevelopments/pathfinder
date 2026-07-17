@@ -1,12 +1,24 @@
 import { auth } from "../../../auth";
 import { NextResponse } from "next/server";
-import { redisGet, redisIncr } from "../../../lib/redis";
+import { redisEval, redisGet } from "../../../lib/redis";
 
 const BASE_DAILY_LIMIT = 15;
+const GLOBAL_DAILY_LIMIT = Math.max(
+  1,
+  Number.parseInt(process.env.GEMINI_DAILY_REQUEST_LIMIT || "50", 10) || 50
+);
+const USAGE_TTL_SECONDS = 60 * 60 * 48;
 
 interface BuildAction {
   type: string;
   description: string;
+}
+
+interface AiResult {
+  message: string;
+  actions: BuildAction[];
+  suggestions: string[];
+  blocked: boolean;
 }
 
 interface GenerateResponse {
@@ -18,6 +30,7 @@ interface GenerateResponse {
   status: "planned" | "chat" | "blocked";
   creditsUsed: number;
   creditsLimit: number;
+  creditsCharged: number;
 }
 
 const DEFAULT_SUGGESTIONS = [
@@ -27,106 +40,244 @@ const DEFAULT_SUGGESTIONS = [
   "Add a leaderboard tracking player wins",
 ];
 
-function todayKey(email: string) {
-  return `pf:usage:${email}:${new Date().toISOString().slice(0, 10)}`;
+const SYSTEM_PROMPT = `You are Pathfinder, an AI Roblox development planner.
+
+Classify the request as BUILD, UNCLEAR, or BLOCKED.
+
+- BUILD: Give one short confirmation and 1-14 concrete actions scaled to complexity.
+- UNCLEAR: Ask one useful clarifying question and provide up to four suggestions.
+- BLOCKED: Briefly refuse unsafe or abusive requests.
+
+Allowed action types: UI, Script, Datastore, Model.
+Return only valid JSON:
+{"message":"...","actions":[{"type":"UI","description":"..."}],"suggestions":[],"blocked":false}`;
+
+function dateStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function userUsageKey(email: string) {
+  return `pf:usage:${email}:${dateStamp()}`;
+}
+
+function globalUsageKey() {
+  return `pf:global-usage:${dateStamp()}`;
+}
+
+function localConversationReply(prompt: string): AiResult | null {
+  const value = prompt.trim().toLowerCase();
+  const clean = value.replace(/[!?.,]+$/g, "").trim();
+
+  if (/^(hi|hello|hey|hiya|heya|yo|sup|good morning|good afternoon|good evening)$/.test(clean)) {
+    return {
+      message: "Hey — I'm Pathfinder. Tell me what you want to build in Roblox and I'll turn it into a structured plan.",
+      actions: [],
+      suggestions: DEFAULT_SUGGESTIONS,
+      blocked: false,
+    };
+  }
+
+  if (/^(thanks|thank you|thankyou|ty|cheers)$/.test(clean)) {
+    return {
+      message: "You're welcome. Send the next Roblox feature whenever you're ready.",
+      actions: [],
+      suggestions: [],
+      blocked: false,
+    };
+  }
+
+  if (/^(bye|goodbye|see you|cya|later)$/.test(clean)) {
+    return {
+      message: "See you next time. Your initiative will be here when you return.",
+      actions: [],
+      suggestions: [],
+      blocked: false,
+    };
+  }
+
+  if (/^(who are you|what are you|what can you do|help|help me)$/.test(clean)) {
+    return {
+      message: "I'm Pathfinder, an AI Roblox development planner. Describe a system, feature, or game and I'll break it into build actions.",
+      actions: [],
+      suggestions: DEFAULT_SUGGESTIONS,
+      blocked: false,
+    };
+  }
+
+  if (/^(idk|i don't know|i dont know|not sure|dunno|no idea)$/.test(clean)) {
+    return {
+      message: "No problem — pick an idea below or describe the kind of Roblox game you enjoy.",
+      actions: [],
+      suggestions: DEFAULT_SUGGESTIONS,
+      blocked: false,
+    };
+  }
+
+  return null;
 }
 
 async function getCreditState(email: string) {
   const [usageRaw, bonusRaw] = await Promise.all([
-    redisGet(todayKey(email)),
+    redisGet(userUsageKey(email)),
     redisGet(`pf:bonuscredits:${email}`),
   ]);
-  const used = usageRaw ? parseInt(usageRaw, 10) : 0;
-  const bonus = bonusRaw ? parseInt(bonusRaw, 10) : 0;
+  const used = Math.max(0, Number.parseInt(usageRaw || "0", 10) || 0);
+  const bonus = Math.max(0, Number.parseInt(bonusRaw || "0", 10) || 0);
   return { used, limit: BASE_DAILY_LIMIT + bonus };
 }
 
-function fallbackReply(prompt: string): { message: string; actions: BuildAction[]; suggestions: string[]; blocked: boolean } {
-  const lower = prompt.toLowerCase().trim();
-  const isGreeting = /^(hi|hey|hello|yo|sup|what's up|whats up)\b/.test(lower);
-  const isUnsure = /^(idk|i don't know|i dont know|not sure|dunno|anything|something|whatever|no idea)\b/.test(lower);
+const RESERVE_SCRIPT = `
+local userUsed = tonumber(redis.call('GET', KEYS[1]) or '0')
+local globalUsed = tonumber(redis.call('GET', KEYS[2]) or '0')
+local userLimit = tonumber(ARGV[1])
+local globalLimit = tonumber(ARGV[2])
+local ttl = tonumber(ARGV[3])
 
-  if (isGreeting) {
-    return { message: "Hey, I'm Pathfinder. Tell me what to build and I'll break it down.", actions: [], suggestions: DEFAULT_SUGGESTIONS, blocked: false };
-  }
-  if (isUnsure || lower.length < 3) {
-    return { message: "No worries — here are a few ideas, or describe your own:", actions: [], suggestions: DEFAULT_SUGGESTIONS, blocked: false };
-  }
+if userUsed >= userLimit then
+  return {-1, userUsed, globalUsed}
+end
+if globalUsed >= globalLimit then
+  return {-2, userUsed, globalUsed}
+end
 
-  const actions: BuildAction[] = [];
-  if (lower.includes("shop") || lower.includes("store")) {
-    actions.push({ type: "UI", description: "Shop interface with item listings" });
-    actions.push({ type: "Script", description: "Purchase and currency deduction logic" });
-  }
-  if (lower.includes("pet")) {
-    actions.push({ type: "Datastore", description: "Pet inventory datastore schema" });
-    actions.push({ type: "Model", description: "Pet equip and follow behavior" });
-  }
-  if (lower.includes("npc")) {
-    actions.push({ type: "Script", description: "NPC with dialogue or interaction trigger" });
-  }
-  if (lower.includes("leaderboard")) {
-    actions.push({ type: "UI", description: "Leaderboard UI sorted by stat" });
-    actions.push({ type: "Datastore", description: "Ordered datastore for ranking" });
-  }
-  if (actions.length === 0) {
-    return { message: "I'm not sure what to build from that yet — try one of these:", actions: [], suggestions: DEFAULT_SUGGESTIONS, blocked: false };
-  }
-  return { message: "On it. Breaking this into pieces:", actions, suggestions: [], blocked: false };
+userUsed = redis.call('INCR', KEYS[1])
+globalUsed = redis.call('INCR', KEYS[2])
+redis.call('EXPIRE', KEYS[1], ttl)
+redis.call('EXPIRE', KEYS[2], ttl)
+return {1, userUsed, globalUsed}
+`;
+
+const REFUND_SCRIPT = `
+local userUsed = tonumber(redis.call('GET', KEYS[1]) or '0')
+local globalUsed = tonumber(redis.call('GET', KEYS[2]) or '0')
+if userUsed > 0 then redis.call('DECR', KEYS[1]) end
+if globalUsed > 0 then redis.call('DECR', KEYS[2]) end
+return 1
+`;
+
+async function reserveGeminiRequest(email: string, userLimit: number) {
+  const result = await redisEval<number[]>(
+    RESERVE_SCRIPT,
+    [userUsageKey(email), globalUsageKey()],
+    [userLimit, GLOBAL_DAILY_LIMIT, USAGE_TTL_SECONDS]
+  );
+  return { code: Number(result[0]), userUsed: Number(result[1]) };
 }
 
-async function generateWithGemini(
-  prompt: string
-): Promise<{ message: string; actions: BuildAction[]; suggestions: string[]; blocked: boolean } | null> {
+async function refundGeminiRequest(email: string) {
+  await redisEval<number>(REFUND_SCRIPT, [userUsageKey(email), globalUsageKey()]);
+}
+
+function fallbackReply(prompt: string): AiResult {
+  const lower = prompt.toLowerCase();
+  const actions: BuildAction[] = [];
+
+  if (lower.includes("shop") || lower.includes("store")) {
+    actions.push({ type: "UI", description: "Shop interface with item listings and purchase feedback" });
+    actions.push({ type: "Script", description: "Server-validated purchasing and currency handling" });
+  }
+  if (lower.includes("pet")) {
+    actions.push({ type: "Datastore", description: "Persistent pet inventory and equipped-pet data" });
+    actions.push({ type: "Model", description: "Pet equip, follow, and unequip behaviour" });
+  }
+  if (lower.includes("npc")) {
+    actions.push({ type: "Script", description: "NPC interaction and dialogue controller" });
+  }
+  if (lower.includes("leaderboard")) {
+    actions.push({ type: "UI", description: "Leaderboard interface sorted by player statistics" });
+    actions.push({ type: "Datastore", description: "Ordered datastore for persistent rankings" });
+  }
+
+  return actions.length > 0
+    ? { message: "I created a basic fallback plan while the AI service is unavailable.", actions, suggestions: [], blocked: false }
+    : { message: "The AI service is temporarily unavailable, so I couldn't safely plan that request. No credit was used.", actions: [], suggestions: DEFAULT_SUGGESTIONS, blocked: false };
+}
+
+async function generateWithGemini(prompt: string): Promise<AiResult | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
-  const systemPrompt = `You are Pathfinder, an AI Roblox developer, talking directly to a developer in a chat interface.
-
-Classify the message into exactly one category:
-
-1. GREETING/SMALL TALK — reply warmly and briefly in first person, invite them to describe a build. actions: [], suggestions: 3-4 concrete build ideas, blocked: false.
-
-2. UNCLEAR/UNDECIDED — acknowledge briefly, offer 3-4 concrete build ideas as suggestions. actions: [], blocked: false.
-
-3. ACTUAL BUILD REQUEST — reply with ONE short first-person sentence confirming what you're doing (never say "here's the plan" verbatim). Break the work into concrete build actions. SCALE COUNT TO COMPLEXITY: trivial = 1-3 actions, moderate = 3-6 actions, a full game or complex system = 8-14 actions. suggestions: [], blocked: false.
-
-4. OFFENSIVE OR POLICY-VIOLATING — reply with a brief, firm, first-person refusal (1-2 sentences). actions: [], suggestions: [], blocked: true.
-
-Respond ONLY with valid JSON, no markdown:
-{"message": "short first-person reply", "actions": [{"type": "UI" | "Script" | "Datastore" | "Model", "description": "specific description"}], "suggestions": ["idea"], "blocked": false}
-
-User message: ${prompt}`;
-
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.35,
+            maxOutputTokens: 1800,
+            responseMimeType: "application/json",
+          },
+        }),
       }
     );
-    if (!res.ok) {
-      console.error("Gemini API error:", res.status, await res.text());
+
+    if (!response.ok) {
+      console.error("Gemini API error", response.status, await response.text());
       return null;
     }
-    const data = await res.json();
+
+    const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return null;
-    const cleaned = text.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(cleaned);
+    if (typeof text !== "string") return null;
+
+    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
     if (typeof parsed.message !== "string" || !Array.isArray(parsed.actions)) return null;
+
+    const actions = parsed.actions
+      .filter(
+        (action: unknown): action is BuildAction =>
+          typeof action === "object" &&
+          action !== null &&
+          "type" in action &&
+          "description" in action &&
+          typeof action.type === "string" &&
+          typeof action.description === "string"
+      )
+      .slice(0, 14)
+      .map((action: BuildAction) => ({
+        type: action.type.slice(0, 30),
+        description: action.description.slice(0, 240),
+      }));
+
     return {
-      message: parsed.message,
-      actions: parsed.actions.filter((a: unknown): a is BuildAction => typeof a === "object" && a !== null && "type" in a && "description" in a),
-      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 4) : [],
+      message: parsed.message.slice(0, 600),
+      actions,
+      suggestions: Array.isArray(parsed.suggestions)
+        ? parsed.suggestions.filter((item: unknown): item is string => typeof item === "string").slice(0, 4)
+        : [],
       blocked: parsed.blocked === true,
     };
-  } catch (err) {
-    console.error("Gemini request failed:", err);
+  } catch (error) {
+    console.error("Gemini request failed", error);
     return null;
   }
+}
+
+function makeResponse(
+  prompt: string,
+  result: AiResult,
+  used: number,
+  limit: number,
+  creditsCharged: number
+): GenerateResponse {
+  return {
+    id: `bld_${Date.now()}`,
+    prompt,
+    message: result.message,
+    actions: result.actions,
+    suggestions: result.suggestions,
+    status: result.blocked ? "blocked" : result.actions.length > 0 ? "planned" : "chat",
+    creditsUsed: used,
+    creditsLimit: limit,
+    creditsCharged,
+  };
 }
 
 export async function GET() {
@@ -134,8 +285,14 @@ export async function GET() {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const state = await getCreditState(session.user.email);
-  return NextResponse.json({ used: state.used, limit: state.limit });
+
+  try {
+    const state = await getCreditState(session.user.email.toLowerCase());
+    return NextResponse.json(state);
+  } catch (error) {
+    console.error("Credit state failed", error);
+    return NextResponse.json({ error: "Usage service unavailable" }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -143,38 +300,49 @@ export async function POST(request: Request) {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const email = session.user.email;
 
   const body = await request.json().catch(() => null);
-  const prompt = body?.prompt;
-  if (typeof prompt !== "string" || prompt.trim().length === 0) {
+  const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
+  if (!prompt) {
     return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   }
-
-  const { used, limit } = await getCreditState(email);
-  if (used >= limit) {
-    return NextResponse.json({ error: "OUT_OF_CREDITS", creditsUsed: used, creditsLimit: limit }, { status: 429 });
+  if (prompt.length > 2000) {
+    return NextResponse.json({ error: "Prompt must be 2,000 characters or less" }, { status: 400 });
   }
 
-  let result = await generateWithGemini(prompt.trim());
-  if (!result) {
-    result = fallbackReply(prompt.trim());
+  const email = session.user.email.toLowerCase();
+
+  try {
+    const { used, limit } = await getCreditState(email);
+    const localResult = localConversationReply(prompt);
+    if (localResult) {
+      return NextResponse.json(makeResponse(prompt, localResult, used, limit, 0));
+    }
+
+    const reservation = await reserveGeminiRequest(email, limit);
+    if (reservation.code === -1) {
+      return NextResponse.json(
+        { error: "OUT_OF_CREDITS", creditsUsed: used, creditsLimit: limit },
+        { status: 429 }
+      );
+    }
+    if (reservation.code === -2) {
+      return NextResponse.json(
+        { error: "Pathfinder has reached today's shared Alpha AI limit. Try again after the daily reset." },
+        { status: 503 }
+      );
+    }
+
+    const result = await generateWithGemini(prompt);
+    if (!result) {
+      await refundGeminiRequest(email);
+      return NextResponse.json(makeResponse(prompt, fallbackReply(prompt), used, limit, 0));
+    }
+
+    return NextResponse.json(makeResponse(prompt, result, reservation.userUsed, limit, 1));
+  } catch (error) {
+    console.error("Generate route failed", error);
+    return NextResponse.json({ error: "Pathfinder is temporarily unavailable. No credit was used." }, { status: 503 });
   }
-
-  const newUsed = await redisIncr(todayKey(email));
-
-  const status: "planned" | "chat" | "blocked" = result.blocked ? "blocked" : result.actions.length > 0 ? "planned" : "chat";
-
-  const response: GenerateResponse = {
-    id: `bld_${Date.now()}`,
-    prompt: prompt.trim(),
-    message: result.message,
-    actions: result.actions,
-    suggestions: result.suggestions,
-    status,
-    creditsUsed: newUsed,
-    creditsLimit: limit,
-  };
-
-  return NextResponse.json(response);
 }
+

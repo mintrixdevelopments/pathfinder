@@ -109,10 +109,6 @@ export default function DashboardPage() {
       setMessages((prev) => [...prev, { id: `sys_${Date.now()}`, role: "system", content: "You need an initiative selected before I can help. Head to Initiatives and start or select one first." }]);
       return;
     }
-    if (creditsLimit !== null && creditsUsed !== null && creditsUsed >= creditsLimit) {
-      setShowLimitModal(true);
-      return;
-    }
 
     const pendingId = `a_${Date.now()}`;
     setMessages((prev) => [...prev, { id: `u_${Date.now()}`, role: "user", content: text }, { id: pendingId, role: "assistant", content: "", badgeStatus: "pending" }]);
