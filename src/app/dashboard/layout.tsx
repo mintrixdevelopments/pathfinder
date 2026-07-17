@@ -2,6 +2,7 @@ import { auth } from "../../auth";
 import { redirect } from "next/navigation";
 import { BuildsProvider } from "./builds-context";
 import { DashboardShell } from "./dashboard-shell";
+import { ReleaseNotes } from "../../components/ReleaseNotes";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -11,6 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <BuildsProvider>
+      <ReleaseNotes />
       <DashboardShell user={{ name: session.user.name, email: session.user.email, image: session.user.image }}>
         {children}
       </DashboardShell>
