@@ -135,7 +135,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const state = await getCreditState(session.user.email);
-  return NextResponse.json(state);
+  return NextResponse.json({ used: state.used, limit: state.limit });
 }
 
 export async function POST(request: Request) {

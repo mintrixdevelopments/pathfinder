@@ -43,7 +43,7 @@ export default async function Home() {
   return (
     <div className="flex min-h-screen flex-col overflow-hidden bg-white text-neutral-900">
       <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-10">
-        <Link href="/"><img src="/logo-full.png" alt="Pathfinder" className="h-7 w-auto" /></Link>
+        <Link href="/"><img src="/logo-full.png" alt="Pathfinder" className="h-12 w-auto" /></Link>
         <nav className="flex items-center gap-3">
           <Link href="/donate" className="hidden text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-900 sm:block">
             Donate
@@ -158,7 +158,7 @@ export default async function Home() {
       <footer className="border-t border-neutral-100 px-6 py-14 md:px-10">
         <div className="mx-auto flex max-w-5xl flex-col gap-10 md:flex-row md:justify-between">
           <div className="flex flex-col gap-3">
-            <span className="text-base font-semibold tracking-tight">Pathfinder</span>
+            <img src="/logo-full.png" alt="Pathfinder" className="h-6 w-auto" />
             <p className="max-w-xs text-sm text-neutral-500">An AI Roblox developer, built by Mintrix Developments.</p>
             <div className="mt-2 flex items-center gap-4">
               {SOCIALS.map((social) => (

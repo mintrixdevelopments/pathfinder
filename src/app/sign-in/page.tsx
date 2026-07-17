@@ -4,7 +4,7 @@ import Link from "next/link";
 export default function SignInPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-white px-4">
-      <Link href="/"><img src="/logo-full.png" alt="Pathfinder" className="h-9 w-auto" /></Link>
+      <Link href="/"><img src="/logo-full.png" alt="Pathfinder" className="h-14 w-auto" /></Link>
       <div className="w-full max-w-sm rounded-xl border border-neutral-200 p-6 text-center">
         <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
         <p className="mt-1 text-sm text-neutral-500">Sign in to continue to Pathfinder.</p>

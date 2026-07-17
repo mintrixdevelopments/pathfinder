@@ -22,12 +22,6 @@ const STARTER_SUGGESTIONS = [
   "Add a leaderboard tracking player wins",
 ];
 
-const DAILY_LIMIT = 15;
-
-function getTodayKey() {
-  return `pf_generations_${new Date().toISOString().slice(0, 10)}`;
-}
-
 function TypingDots() {
   return (
     <div className="flex items-center gap-1 px-1 py-1">
@@ -76,82 +70,25 @@ function SuggestionChips({ items, onPick }: { items: string[]; onPick: (text: st
   );
 }
 
-function ModelSelector() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-neutral-300">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        Gemini 3.1 Flash Lite
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 text-neutral-400">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="absolute left-0 top-full z-20 mt-1 w-60 rounded-lg border border-border bg-white p-1 shadow-lg">
-          <div className="flex items-center justify-between rounded-md bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-900">
-            Gemini 3.1 Flash Lite
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-emerald-500">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-          </div>
-          <div className="mt-1 flex items-center justify-between rounded-md px-3 py-2 text-xs text-neutral-400">
-            More models
-            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px]">Coming soon</span>
-          </div>
-        </motion.div>
-      )}
-    </div>
-  );
-}
-
-function GenerationMeter({ count, limit }: { count: number; limit: number }) {
-  const remaining = limit - count;
-  const pct = Math.min(100, (count / limit) * 100);
-  const theme = remaining <= 0
-    ? { bar: "#ef4444", text: "text-red-700", bg: "bg-red-50", border: "border-red-200" }
-    : remaining <= 3
-    ? { bar: "#f59e0b", text: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" }
-    : { bar: "#10b981", text: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200" };
-
-  return (
-    <div className={`flex flex-1 items-center gap-3 rounded-lg border ${theme.border} ${theme.bg} px-3 py-2`}>
-      <div className="flex flex-1 flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <span className={`text-xs font-semibold ${theme.text}`}>Daily builds</span>
-          <span className={`text-xs font-semibold ${theme.text}`}>{count} / {limit}</span>
-        </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white">
-          <motion.div className="h-full rounded-full" style={{ backgroundColor: theme.bar }} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.4, ease: "easeOut" }} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function DashboardPage() {
   const { addBuild, activeProject } = useBuilds();
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [genCount, setGenCount] = useState(0);
+  const [creditsUsed, setCreditsUsed] = useState<number | null>(null);
+  const [creditsLimit, setCreditsLimit] = useState<number | null>(null);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const raw = window.localStorage.getItem(getTodayKey());
-    setGenCount(raw ? parseInt(raw, 10) : 0);
+    fetch("/api/generate")
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d.used === "number") setCreditsUsed(d.used);
+        if (typeof d.limit === "number") setCreditsLimit(d.limit);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -165,14 +102,6 @@ export default function DashboardPage() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [prompt]);
 
-  function incrementGenCount() {
-    setGenCount((prev) => {
-      const next = prev + 1;
-      window.localStorage.setItem(getTodayKey(), String(next));
-      return next;
-    });
-  }
-
   async function sendPrompt(text: string) {
     if (!text.trim() || isGenerating) return;
 
@@ -180,7 +109,7 @@ export default function DashboardPage() {
       setMessages((prev) => [...prev, { id: `sys_${Date.now()}`, role: "system", content: "You need an initiative selected before I can help. Head to Initiatives and start or select one first." }]);
       return;
     }
-    if (genCount >= DAILY_LIMIT) {
+    if (creditsLimit !== null && creditsUsed !== null && creditsUsed >= creditsLimit) {
       setShowLimitModal(true);
       return;
     }
@@ -196,13 +125,26 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: text }),
       });
+
+      if (res.status === 429) {
+        setShowLimitModal(true);
+        setMessages((prev) => prev.filter((m) => m.id !== pendingId));
+        setIsGenerating(false);
+        return;
+      }
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to generate");
       }
-      const data: { id: string; prompt: string; message: string; actions: BuildAction[]; suggestions: string[]; status: "planned" | "chat" | "blocked" } = await res.json();
 
-      incrementGenCount();
+      const data: {
+        id: string; prompt: string; message: string; actions: BuildAction[]; suggestions: string[];
+        status: "planned" | "chat" | "blocked"; creditsUsed: number; creditsLimit: number;
+      } = await res.json();
+
+      setCreditsUsed(data.creditsUsed);
+      setCreditsLimit(data.creditsLimit);
 
       setMessages((prev) =>
         prev.map((m) =>
@@ -233,13 +175,15 @@ export default function DashboardPage() {
     }
   }
 
+  const creditsRemaining = creditsLimit !== null && creditsUsed !== null ? creditsLimit - creditsUsed : null;
+  const creditTheme =
+    creditsRemaining === null ? "border-border bg-surface text-muted-foreground"
+    : creditsRemaining <= 0 ? "border-red-200 bg-red-50 text-red-700"
+    : creditsRemaining <= 3 ? "border-amber-200 bg-amber-50 text-amber-700"
+    : "border-emerald-200 bg-emerald-50 text-emerald-700";
+
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col px-6 py-6">
-      <div className="mb-3 flex items-center gap-3">
-        <ModelSelector />
-        <GenerationMeter count={genCount} limit={DAILY_LIMIT} />
-      </div>
-
       <AnimatePresence>
         {!activeProject && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4 flex items-center gap-2.5 overflow-hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
@@ -318,10 +262,19 @@ export default function DashboardPage() {
       <motion.div layout className="mt-4 rounded-xl border border-border bg-surface transition-all focus-within:border-neutral-400 focus-within:ring-4 focus-within:ring-neutral-100">
         <textarea ref={textareaRef} value={prompt} onChange={(e) => setPrompt(e.target.value)} onKeyDown={handleKeyDown} placeholder="Build a highly realistic PVP shooter with weapon mechanics, movement, and a HUD." rows={3} className="w-full resize-none bg-transparent px-4 py-3 text-sm placeholder:text-muted focus:outline-none" />
         <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
-          <span className="text-xs text-muted">{activeProject ? `Initiative: ${activeProject.name}` : "No initiative selected"}</span>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => sendPrompt(prompt)} disabled={!prompt.trim() || isGenerating} className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
-            {isGenerating ? "Thinking…" : "Send"}
-          </motion.button>
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <span>{activeProject ? `Initiative: ${activeProject.name}` : "No initiative selected"}</span>
+            <span className="text-neutral-300">·</span>
+            <span>Gemini 3.1 Flash Lite</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${creditTheme}`}>
+              {creditsRemaining !== null ? `${creditsRemaining} credits left` : "…"}
+            </span>
+            <motion.button whileTap={{ scale: 0.96 }} onClick={() => sendPrompt(prompt)} disabled={!prompt.trim() || isGenerating} className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
+              {isGenerating ? "Thinking…" : "Send"}
+            </motion.button>
+          </div>
         </div>
       </motion.div>
 
@@ -334,11 +287,16 @@ export default function DashboardPage() {
               </div>
               <h2 className="mt-4 text-lg font-semibold text-neutral-900">Out of credits for today</h2>
               <p className="mt-2 text-sm text-neutral-500">
-                You're out of free credits for today. They reset at midnight — or invite friends to earn more (coming very soon).
+                Your credits reset at midnight. Want more right now? Invite friends — each one gives you +1 credit.
               </p>
-              <button onClick={() => setShowLimitModal(false)} className="mt-5 w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
-                Got it
-              </button>
+              <div className="mt-5 flex flex-col gap-2">
+                <a href="/dashboard/invite" className="w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
+                  Invite friends
+                </a>
+                <button onClick={() => setShowLimitModal(false)} className="w-full rounded-lg border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-50">
+                  Got it
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

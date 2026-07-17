@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard", icon: "grid" },
   { label: "Builds", href: "/dashboard/builds", icon: "layers" },
   { label: "Initiatives", href: "/dashboard/initiatives", icon: "folder" },
+  { label: "Invite", href: "/dashboard/invite", icon: "gift" },
   { label: "Settings", href: "/dashboard/settings", icon: "settings" },
 ] as const;
 
@@ -18,6 +19,7 @@ function NavIcon({ name }: { name: string }) {
     grid: (<><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>),
     layers: (<><path d="M12 2 2 7l10 5 10-5-10-5Z" /><path d="m2 17 10 5 10-5" /><path d="m2 12 10 5 10-5" /></>),
     folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />,
+    gift: (<><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M12 8v13" /><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" /><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5" /></>),
     settings: (<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" /></>),
   };
   return (
@@ -38,8 +40,8 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border">
-        <Link href="/" className="flex h-14 items-center gap-2 border-b border-border px-5">
-          <span className="flex items-center gap-2 text-sm font-semibold tracking-tight"><img src="/logo-icon.png" alt="" className="h-5 w-5" />Pathfinder</span>
+        <Link href="/" className="flex h-20 items-center border-b border-border px-5">
+          <img src="/logo-full.png" alt="Pathfinder" className="h-10 w-auto" />
         </Link>
 
         <ProjectSwitcher />
