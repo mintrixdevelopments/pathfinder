@@ -43,7 +43,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
     <div className="dashboard-theme flex h-screen w-full overflow-hidden bg-background text-foreground">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border">
         <Link href="/" className="flex h-16 items-center border-b border-border px-5">
-          <Logo height={30} themeAware />
+          <Logo height={38} themeAware priority />
         </Link>
 
         <ProjectSwitcher />

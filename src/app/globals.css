@@ -105,6 +105,7 @@ body {
 .dark .dashboard-theme .bg-white { background-color: #151619 !important; }
 .dark .dashboard-theme .theme-keep-white { background-color: #ffffff !important; }
 .dark .dashboard-theme .bg-neutral-50 { background-color: #18191d !important; }
+.dark .dashboard-theme .bg-neutral-50\/50 { background-color: rgb(24 25 29 / 0.7) !important; }
 .dark .dashboard-theme .bg-neutral-100 { background-color: #22242a !important; }
 .dark .dashboard-theme .bg-neutral-900 { background-color: #292b30 !important; }
 .dark .dashboard-theme .hover\:bg-neutral-50:hover,
@@ -124,3 +125,9 @@ body {
 .dark .dashboard-theme .border-neutral-300 { border-color: #2a2c31 !important; }
 .dark .dashboard-theme .focus-within\:ring-neutral-100:focus-within { --tw-ring-color: #24262b !important; }
 .dark .dashboard-theme .shadow-black\/10 { --tw-shadow-color: rgb(0 0 0 / 0.35) !important; }
+.dark .dashboard-theme .text-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #aeb1b8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "../auth";
 import { Logo } from "../components/Logo";
+import { ThemeToggle } from "./dashboard/theme-toggle";
 
 const STEPS = [
   { number: "01", title: "Say what you want", description: "\"Add a pet shop with rarities and a leaderboard.\" Type it like you'd say it to a teammate — no code needed." },
@@ -42,10 +43,11 @@ export default async function Home() {
   const isLoggedIn = !!session?.user;
 
   return (
-    <div className="flex min-h-screen flex-col overflow-hidden bg-white text-neutral-900">
+    <div className="dashboard-theme flex min-h-screen flex-col overflow-hidden bg-background text-foreground">
       <header className="relative z-10 flex items-center justify-between px-6 py-5 md:px-10">
-        <Link href="/"><Logo height={36} /></Link>
+        <Link href="/"><Logo height={32} themeAware priority /></Link>
         <nav className="flex items-center gap-3">
+          <ThemeToggle />
           <Link href="/donate" className="hidden text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-900 sm:block">
             Donate
           </Link>
@@ -77,9 +79,9 @@ export default async function Home() {
 
       <section className="relative flex flex-col items-center overflow-hidden px-6 pb-20 pt-16 text-center md:pt-24">
         <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="animate-float absolute -top-20 left-1/4 h-72 w-72 rounded-full bg-indigo-100 opacity-50 blur-3xl" />
-          <div className="animate-float-slow absolute top-10 right-1/4 h-80 w-80 rounded-full bg-neutral-100 opacity-60 blur-3xl" />
-          <div className="animate-float absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-blue-50 opacity-50 blur-3xl" />
+          <div className="animate-float absolute -top-20 left-1/4 h-72 w-72 rounded-full bg-indigo-100 opacity-50 blur-3xl dark:bg-indigo-950 dark:opacity-30" />
+          <div className="animate-float-slow absolute top-10 right-1/4 h-80 w-80 rounded-full bg-neutral-100 opacity-60 blur-3xl dark:bg-neutral-800 dark:opacity-30" />
+          <div className="animate-float absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-blue-50 opacity-50 blur-3xl dark:bg-blue-950 dark:opacity-25" />
         </div>
 
         <span className="animate-fade-in-up mb-5 rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-500">
@@ -159,7 +161,7 @@ export default async function Home() {
       <footer className="border-t border-neutral-100 px-6 py-14 md:px-10">
         <div className="mx-auto flex max-w-5xl flex-col gap-10 md:flex-row md:justify-between">
           <div className="flex flex-col gap-3">
-            <Logo height={22} />
+            <Logo height={24} themeAware />
             <p className="max-w-xs text-sm text-neutral-500">An AI Roblox developer, built by Mintrix Developments.</p>
             <div className="mt-2 flex items-center gap-4">
               {SOCIALS.map((social) => (
