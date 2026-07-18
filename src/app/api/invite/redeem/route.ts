@@ -1,39 +1,34 @@
 import { auth } from "../../../../auth";
 import { NextResponse } from "next/server";
-import { redisGet, redisIncr, redisIncrByFloat, redisSetNX } from "../../../../lib/redis";
+import { redeemInviteForEmail } from "../../../../lib/invites";
 
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const email = session.user.email;
 
   const body = await request.json().catch(() => null);
-  const code = body?.code;
-  if (typeof code !== "string" || !code.trim()) {
-    return NextResponse.json({ error: "Missing code" }, { status: 400 });
+  const code = typeof body?.code === "string" ? body.code.trim().toUpperCase() : "";
+  if (!/^[A-Z0-9_-]{6,12}$/.test(code)) {
+    return NextResponse.json({ error: "Invalid invite code" }, { status: 400 });
   }
 
-  const normalizedCode = code.trim().toUpperCase();
-  const ownerEmail = await redisGet(`pf:codeowner:${normalizedCode}`);
-  if (!ownerEmail) {
-    return NextResponse.json({ ok: false, message: "Invalid invite code" }, { status: 200 });
-  }
-  if (ownerEmail === email) {
-    return NextResponse.json({ ok: false, message: "You can't redeem your own invite link" }, { status: 200 });
-  }
+  const email = session.user.email.toLowerCase();
 
-  const setResult = await redisSetNX(`pf:redeemed:${email}`, "1");
-  if (setResult !== 1) {
-    return NextResponse.json({ ok: false, message: "Already redeemed" });
+  try {
+    return NextResponse.json(await redeemInviteForEmail(email, code));
+  } catch (error) {
+    if (error instanceof Error && error.message === "CODE_NOT_FOUND") {
+      return NextResponse.json({ error: "Invite code not found" }, { status: 404 });
+    }
+    if (error instanceof Error && error.message === "SELF_REFERRAL") {
+      return NextResponse.json({ error: "You cannot redeem your own invite link" }, { status: 400 });
+    }
+    console.error("Invite redeem failed", error);
+    return NextResponse.json(
+      { error: "Invite could not be redeemed. It will be retried automatically." },
+      { status: 503 }
+    );
   }
-
-  const newCount = await redisIncr(`pf:invitecount:${ownerEmail}`);
-  await redisIncrByFloat(`pf:bonuscredits:${ownerEmail}`, 1);
-  if (newCount === 10) {
-    await redisIncrByFloat(`pf:bonuscredits:${ownerEmail}`, 1);
-  }
-
-  return NextResponse.json({ ok: true, message: "Invite applied — thanks for joining Pathfinder!" });
 }

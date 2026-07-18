@@ -1,25 +1,50 @@
-"use client";
+import Image from "next/image";
 
-const CONTENT_W_PCT = 82.76;
-const CONTENT_H_PCT = 40.07;
-const LEFT_PCT = 9.67;
-const TOP_PCT = 29.15;
-const ORIGINAL_ASPECT = 1717 / 916;
+const SOURCE_WIDTH = 1717;
+const SOURCE_HEIGHT = 916;
+const CONTENT_WIDTH_RATIO = 0.8276;
+const CONTENT_HEIGHT_RATIO = 0.4007;
+const CONTENT_LEFT_RATIO = 0.0967;
+const CONTENT_TOP_RATIO = 0.2915;
 
-export function Logo({ height = 32 }: { height?: number }) {
-  const scaledImgHeight = height / (CONTENT_H_PCT / 100);
-  const scaledImgWidth = scaledImgHeight * ORIGINAL_ASPECT;
-  const wrapperWidth = scaledImgWidth * (CONTENT_W_PCT / 100);
-  const top = -((TOP_PCT / 100) * scaledImgHeight);
-  const left = -((LEFT_PCT / 100) * scaledImgWidth);
+interface LogoProps {
+  height?: number;
+  priority?: boolean;
+  className?: string;
+}
+
+/**
+ * Renders the visible Pathfinder mark without the large white padding that is
+ * baked into logo-full.png. `height` always refers to the visible logo height.
+ */
+export function Logo({ height = 36, priority = false, className = "" }: LogoProps) {
+  const renderedImageHeight = height / CONTENT_HEIGHT_RATIO;
+  const renderedImageWidth = renderedImageHeight * (SOURCE_WIDTH / SOURCE_HEIGHT);
+  const visibleWidth = renderedImageWidth * CONTENT_WIDTH_RATIO;
 
   return (
-    <div style={{ height, width: wrapperWidth, position: "relative", overflow: "hidden" }}>
-      <img
+    <span
+      aria-label="Pathfinder"
+      className={`relative inline-block shrink-0 overflow-hidden ${className}`}
+      style={{ height, width: visibleWidth }}
+    >
+      <Image
         src="/logo-full.png"
-        alt="Pathfinder"
-        style={{ position: "absolute", height: scaledImgHeight, width: scaledImgWidth, top, left, maxWidth: "none" }}
+        alt=""
+        width={SOURCE_WIDTH}
+        height={SOURCE_HEIGHT}
+        priority={priority}
+        sizes={`${Math.ceil(visibleWidth)}px`}
+        style={{
+          position: "absolute",
+          height: renderedImageHeight,
+          width: renderedImageWidth,
+          maxWidth: "none",
+          left: -(CONTENT_LEFT_RATIO * renderedImageWidth),
+          top: -(CONTENT_TOP_RATIO * renderedImageHeight),
+        }}
       />
-    </div>
+    </span>
   );
 }
+

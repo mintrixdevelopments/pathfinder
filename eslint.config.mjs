@@ -7,14 +7,15 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     rules: {
-      // Legal and marketing prose can contain normal punctuation.
+      // Marketing and legal copy intentionally uses readable punctuation in JSX.
       "react/no-unescaped-entities": "off",
-
-      // Google authentication uses an API route and requires full navigation.
+      // Auth callback URLs are route handlers, not client-rendered pages.
       "@next/next/no-html-link-for-pages": "off",
     },
   },
+  // Override default ignores of eslint-config-next.
   globalIgnores([
+    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
@@ -23,3 +24,4 @@ const eslintConfig = defineConfig([
 ]);
 
 export default eslintConfig;
+

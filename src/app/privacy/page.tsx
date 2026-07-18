@@ -17,8 +17,9 @@ export default function PrivacyPage() {
 
         <div>
           <h2 className="text-base font-semibold text-neutral-900">1. Information we collect</h2>
-          <p className="mt-2">When you sign in with Google, we receive your name, email address, and profile picture from Google's OAuth service. We never see or store your Google password.</p>
+          <p className="mt-2">When you sign in with Google, we receive your name, email address, and profile picture from Google's OAuth service. We never see or store your Google password. If you create an email and password account, we store your name, email address, verification status, and a salted one-way password hash. We never store your readable password.</p>
           <p className="mt-2">When you use the chat, we process the text you type — your build prompts and conversation history — in order to generate responses and build plans.</p>
+          <p className="mt-2">For account security, we may process your IP address, approximate location, browser, device type, and sign-in time to identify new browsers and send security notifications.</p>
         </div>
 
         <div>
@@ -34,11 +35,13 @@ export default function PrivacyPage() {
         </div>
 
         <div>
-          <h2 className="text-base font-semibold text-neutral-900">3. Local storage on your device</h2>
+          <h2 className="text-base font-semibold text-neutral-900">3. Browser and server storage</h2>
           <p className="mt-2">
-            Pathfinder stores a small daily generation counter directly in your
-            browser's local storage, so we can enforce fair usage limits. This data
-            never leaves your browser and is not sent to our servers.
+            Pathfinder uses browser storage for initiatives, build history, pending referral codes,
+            and a random device identifier. Account records, server-enforced AI usage,
+            referral rewards, verification tokens, and security-device records are stored
+            in Upstash Redis. Security and recovery tokens expire automatically and are
+            stored in hashed or single-use form where appropriate.
           </p>
         </div>
 
@@ -65,7 +68,7 @@ export default function PrivacyPage() {
 
         <div>
           <h2 className="text-base font-semibold text-neutral-900">7. Security</h2>
-          <p className="mt-2">We rely on industry-standard providers (Google OAuth, Vercel hosting) for authentication and infrastructure security. As an early-stage alpha product, no system is perfectly secure — please avoid submitting sensitive personal or financial information through Pathfinder.</p>
+          <p className="mt-2">We rely on established providers including Google OAuth, Vercel, Upstash, and Resend for authentication, hosting, data storage, and transactional email delivery. Passwords are protected using salted, deliberately slow one-way hashing. As an early-stage alpha product, no system is perfectly secure — please avoid submitting sensitive personal or financial information through Pathfinder.</p>
         </div>
 
         <div>

@@ -4,8 +4,25 @@ import { useEffect, useState } from "react";
 
 const releases = [
   {
-    version: "0.2.1",
+    version: "0.3.0",
     label: "Current",
+    date: "18 July 2026",
+    author: "Mintrix Developments",
+    title: "Pathfinder accounts",
+    description:
+      "A major reliability release making Pathfinder accounts, AI usage, referrals, and security clearer and more dependable.",
+    changes: [
+      "Added verified email and password accounts alongside Google",
+      "Added secure password recovery and account security emails",
+      "Added new-browser sign-in notifications",
+      "Rebuilt referrals with reliable verified rewards",
+      "Made AI generation costs predictable with automatic refunds",
+      "Added separate daily and referral generation balances",
+    ],
+  },
+  {
+    version: "0.2.1",
+    label: "Dashboard",
     date: "18 July 2026",
     author: "Mintrix Developments",
     title: "Production polish",
@@ -13,9 +30,9 @@ const releases = [
       "A focused update improving transparency, reliability, and the Pathfinder dashboard experience.",
     changes: [
       "Added an interactive release notes window",
-      "Restored the preferred Pathfinder interface",
+      "Improved dashboard usability and navigation",
       "Improved production build reliability",
-      "Prepared the dashboard for Phase 3 development",
+      "Prepared Pathfinder for expanded account support",
     ],
   },
   {
@@ -117,7 +134,7 @@ export function ReleaseNotes() {
         <SparkleIcon />
         <span>Updates</span>
         <span className="rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-          0.2.1
+          0.3.0
         </span>
       </button>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBuilds, type BuildAction } from "./builds-context";
 
@@ -13,6 +13,16 @@ interface ChatMessage {
   actions?: BuildAction[];
   suggestions?: string[];
   badgeStatus?: BadgeStatus;
+}
+
+interface CreditState {
+  used: number;
+  limit: number;
+  dailyAllowance: number;
+  dailyUsed: number;
+  bonusCredits: number;
+  remaining: number;
+  resetAt: string;
 }
 
 const STARTER_SUGGESTIONS = [
@@ -77,38 +87,36 @@ export default function DashboardPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [creditsUsed, setCreditsUsed] = useState<number | null>(null);
   const [creditsLimit, setCreditsLimit] = useState<number | null>(null);
+  const [creditState, setCreditState] = useState<CreditState | null>(null);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    fetch("/api/generate")
+  const refreshCredits = useCallback(() => {
+    fetch("/api/generate", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         if (typeof d.used === "number") setCreditsUsed(d.used);
         if (typeof d.limit === "number") setCreditsLimit(d.limit);
+        if (typeof d.remaining === "number") setCreditState(d as CreditState);
       })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    const pendingRef = window.localStorage.getItem("pf_pending_ref");
-    if (!pendingRef) return;
-    window.localStorage.removeItem("pf_pending_ref");
-    fetch("/api/invite/redeem", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: pendingRef }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ok) {
-          setToast("Invite applied — thanks for joining Pathfinder!");
-        }
-      })
-      .catch(() => {});
-  }, []);
+    refreshCredits();
+  }, [refreshCredits]);
+
+  useEffect(() => {
+    const showReferralToast = () => {
+      setToast("Invite applied — 2 bonus generations added!");
+      refreshCredits();
+    };
+
+    window.addEventListener("pf:referral-redeemed", showReferralToast);
+    return () => window.removeEventListener("pf:referral-redeemed", showReferralToast);
+  }, [refreshCredits]);
 
   useEffect(() => {
     if (!toast) return;
@@ -139,11 +147,6 @@ export default function DashboardPage() {
       });
       return;
     }
-    if (creditsLimit !== null && creditsUsed !== null && creditsUsed >= creditsLimit) {
-      setShowLimitModal(true);
-      return;
-    }
-
     const pendingId = `a_${Date.now()}`;
     setMessages((prev) => [...prev, { id: `u_${Date.now()}`, role: "user", content: text }, { id: pendingId, role: "assistant", content: "", badgeStatus: "pending" }]);
     setPrompt("");
@@ -175,6 +178,7 @@ export default function DashboardPage() {
 
       setCreditsUsed(data.creditsUsed);
       setCreditsLimit(data.creditsLimit);
+      refreshCredits();
 
       setMessages((prev) =>
         prev.map((m) =>
@@ -205,7 +209,7 @@ export default function DashboardPage() {
     }
   }
 
-  const creditsRemaining = creditsLimit !== null && creditsUsed !== null ? Math.max(0, creditsLimit - creditsUsed) : null;
+  const creditsRemaining = creditState?.remaining ?? (creditsLimit !== null && creditsUsed !== null ? Math.max(0, creditsLimit - creditsUsed) : null);
   const creditTheme =
     creditsRemaining === null ? "border-border bg-surface text-muted-foreground"
     : creditsRemaining <= 0 ? "text-white" : creditsRemaining <= 3 ? "text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700";
@@ -313,8 +317,14 @@ export default function DashboardPage() {
             <span>Gemini 3.1 Flash Lite</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${creditTheme}`} style={creditBg ? { backgroundColor: creditBg, borderColor: creditBg } : undefined}>
-              {creditsRemaining !== null ? `${Math.round(creditsRemaining)} credits left` : "…"}
+            <div className="hidden text-right sm:block">
+              <p className="text-[11px] font-medium text-neutral-600">
+                {creditState ? `${Math.max(0, creditState.dailyAllowance - creditState.dailyUsed)} daily · ${creditState.bonusCredits} bonus` : "Loading allowance…"}
+              </p>
+              <p className="text-[10px] text-neutral-400">1 generation per AI request</p>
+            </div>
+            <span title="Greetings and basic help are handled locally without using Gemini." className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${creditTheme}`} style={creditBg ? { backgroundColor: creditBg, borderColor: creditBg } : undefined}>
+              {creditsRemaining !== null ? `${Math.round(creditsRemaining)} generations left` : "…"}
             </span>
             <motion.button whileTap={{ scale: 0.96 }} onClick={() => sendPrompt(prompt)} disabled={!prompt.trim() || isGenerating} className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
               {isGenerating ? "Thinking…" : "Send"}
@@ -335,9 +345,9 @@ export default function DashboardPage() {
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
                 <span className="text-2xl font-bold leading-none text-white">!</span>
               </div>
-              <h2 className="mt-5 text-xl font-semibold text-neutral-900">You've used all your credits today</h2>
+              <h2 className="mt-5 text-xl font-semibold text-neutral-900">No AI generations remaining</h2>
               <p className="mt-2 text-sm text-neutral-500">
-                Your credits will reset at 12:00 AM. Want more right now? Invite friends — each one gives you +1 credit, and 10 invites earns a bonus credit too.
+                Your daily allowance resets at midnight UTC. Greetings and basic help still work locally, or invite a friend for 2 bonus generations.
               </p>
               <div className="mt-6 flex flex-col gap-2">
                 <a href="/dashboard/invite" className="w-full rounded-lg bg-neutral-900 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800">

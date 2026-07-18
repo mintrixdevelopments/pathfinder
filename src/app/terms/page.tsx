@@ -27,7 +27,7 @@ export default function TermsPage() {
 
         <div>
           <h2 className="text-base font-semibold text-neutral-900">3. Your account</h2>
-          <p className="mt-2">You're responsible for activity under your account. Don't share your login, or attempt to access another user's account, initiatives, or build data.</p>
+          <p className="mt-2">You're responsible for activity under your account and for keeping your password secure. Don't share your login, or attempt to access another user's account, initiatives, or build data. Contact us promptly if you believe your account has been accessed without permission.</p>
         </div>
 
         <div>
@@ -55,7 +55,7 @@ export default function TermsPage() {
 
         <div>
           <h2 className="text-base font-semibold text-neutral-900">7. Third-party services</h2>
-          <p className="mt-2">Pathfinder relies on third-party services including Google (authentication, Gemini AI) and Vercel (hosting). Your use of Pathfinder is also subject to those providers' own terms where applicable.</p>
+          <p className="mt-2">Pathfinder relies on third-party services including Google (authentication and Gemini AI), Vercel (hosting), Upstash (server data), and Resend (transactional email). Your use of Pathfinder is also subject to those providers' own terms where applicable.</p>
         </div>
 
         <div>
