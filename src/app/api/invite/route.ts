@@ -26,6 +26,6 @@ export async function GET() {
   return NextResponse.json({
     code,
     inviteCount: inviteCountRaw ? parseInt(inviteCountRaw, 10) : 0,
-    bonusCredits: bonusRaw ? parseInt(bonusRaw, 10) : 0,
+    bonusCredits: bonusRaw ? parseFloat(bonusRaw) : 0,
   });
 }

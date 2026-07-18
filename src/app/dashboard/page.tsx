@@ -26,7 +26,7 @@ function TypingDots() {
   return (
     <div className="flex items-center gap-1 px-1 py-1">
       {[0, 1, 2].map((i) => (
-        <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-neutral-400" animate={{ y: [0, -4, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }} />
+        <motion.span key={i} className="h-1.5 w-1.5 rounded-full bg-white/70" animate={{ y: [0, -4, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }} />
       ))}
     </div>
   );
@@ -35,15 +35,15 @@ function TypingDots() {
 function StatusBadge({ status }: { status: BadgeStatus }) {
   if (status === "pending") {
     return (
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
-        <span className="text-[11px] font-bold leading-none text-white">!</span>
+      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+        <span className="text-[11px] font-bold leading-none" style={{ color: "#f59e0b" }}>!</span>
       </motion.div>
     );
   }
   if (status === "blocked") {
     return (
-      <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#ef4444" }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" className="h-3 w-3">
+      <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" className="h-3 w-3">
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
       </motion.div>
@@ -78,6 +78,7 @@ export default function DashboardPage() {
   const [creditsUsed, setCreditsUsed] = useState<number | null>(null);
   const [creditsLimit, setCreditsLimit] = useState<number | null>(null);
   const [showLimitModal, setShowLimitModal] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -90,6 +91,30 @@ export default function DashboardPage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const pendingRef = window.localStorage.getItem("pf_pending_ref");
+    if (!pendingRef) return;
+    window.localStorage.removeItem("pf_pending_ref");
+    fetch("/api/invite/redeem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: pendingRef }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) {
+          setToast("Invite applied — thanks for joining Pathfinder!");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -106,7 +131,12 @@ export default function DashboardPage() {
     if (!text.trim() || isGenerating) return;
 
     if (!activeProject) {
-      setMessages((prev) => [...prev, { id: `sys_${Date.now()}`, role: "system", content: "You need an initiative selected before I can help. Head to Initiatives and start or select one first." }]);
+      const warningText = "You need an initiative selected before I can help. Head to Initiatives and start or select one first.";
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === "system" && last.content === warningText) return prev;
+        return [...prev, { id: `sys_${Date.now()}`, role: "system", content: warningText }];
+      });
       return;
     }
     if (creditsLimit !== null && creditsUsed !== null && creditsUsed >= creditsLimit) {
@@ -175,22 +205,32 @@ export default function DashboardPage() {
     }
   }
 
-  const creditsRemaining = creditsLimit !== null && creditsUsed !== null ? creditsLimit - creditsUsed : null;
+  const creditsRemaining = creditsLimit !== null && creditsUsed !== null ? Math.max(0, creditsLimit - creditsUsed) : null;
   const creditTheme =
     creditsRemaining === null ? "border-border bg-surface text-muted-foreground"
-    : creditsRemaining <= 0 ? "border-red-200 bg-red-50 text-red-700"
-    : creditsRemaining <= 3 ? "border-amber-200 bg-amber-50 text-amber-700"
-    : "border-emerald-200 bg-emerald-50 text-emerald-700";
+    : creditsRemaining <= 0 ? "text-white" : creditsRemaining <= 3 ? "text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700";
+  const creditBg = creditsRemaining === null ? undefined : creditsRemaining <= 0 ? "#ef4444" : creditsRemaining <= 3 ? "#f59e0b" : undefined;
 
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col px-6 py-6">
       <AnimatePresence>
+        {toast && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-4 flex items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium text-white" style={{ backgroundColor: "#10b981" }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {!activeProject && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4 flex items-center gap-2.5 overflow-hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
-              <span className="text-[11px] font-bold leading-none text-white">!</span>
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4 flex items-center gap-2.5 overflow-hidden rounded-lg px-4 py-2.5 text-sm font-medium text-white" style={{ backgroundColor: "#f59e0b" }}>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+              <span className="text-[11px] font-bold leading-none" style={{ color: "#f59e0b" }}>!</span>
             </span>
-            No initiative selected. <a href="/dashboard/initiatives" className="font-medium underline">Start or select one</a> before I can help with builds.
+            No initiative selected. <a href="/dashboard/initiatives" className="font-semibold underline">Start or select one</a> before I can help with builds.
           </motion.div>
         )}
       </AnimatePresence>
@@ -211,9 +251,9 @@ export default function DashboardPage() {
                 if (msg.role === "system") {
                   return (
                     <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
-                      <div className="flex max-w-[90%] items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
-                          <span className="text-[11px] font-bold leading-none text-white">!</span>
+                      <div className="flex max-w-[90%] items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium text-white" style={{ backgroundColor: "#f59e0b" }}>
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+                          <span className="text-[11px] font-bold leading-none" style={{ color: "#f59e0b" }}>!</span>
                         </span>
                         {msg.content}
                       </div>
@@ -227,12 +267,17 @@ export default function DashboardPage() {
                     </motion.div>
                   );
                 }
+                const isBlocked = msg.badgeStatus === "blocked";
+                const isPending = msg.badgeStatus === "pending";
                 return (
                   <motion.div key={msg.id} initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex justify-start">
-                    <div className={`max-w-[85%] rounded-2xl rounded-tl-sm border px-4 py-3 text-sm ${msg.badgeStatus === "blocked" ? "border-red-300 bg-red-100 text-red-800" : "border-border bg-surface text-foreground"}`}>
+                    <div
+                      className={`max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-3 text-sm ${isBlocked ? "text-white" : isPending ? "text-white" : "border border-border bg-surface text-foreground"}`}
+                      style={isBlocked ? { backgroundColor: "#ef4444" } : isPending ? { backgroundColor: "#f59e0b" } : undefined}
+                    >
                       <div className="flex items-center gap-2">
                         {msg.badgeStatus && <StatusBadge status={msg.badgeStatus} />}
-                        {msg.badgeStatus === "pending" ? <TypingDots /> : <p className="font-medium">{msg.content}</p>}
+                        {isPending ? <TypingDots /> : <p className="font-medium">{msg.content}</p>}
                       </div>
                       {msg.actions && msg.actions.length > 0 && (
                         <motion.div className="mt-2.5 flex flex-col gap-1.5 border-t border-border pt-2.5" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.04 } } }}>
@@ -268,8 +313,8 @@ export default function DashboardPage() {
             <span>Gemini 3.1 Flash Lite</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${creditTheme}`}>
-              {creditsRemaining !== null ? `${creditsRemaining} credits left` : "…"}
+            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${creditTheme}`} style={creditBg ? { backgroundColor: creditBg, borderColor: creditBg } : undefined}>
+              {creditsRemaining !== null ? `${Math.round(creditsRemaining)} credits left` : "…"}
             </span>
             <motion.button whileTap={{ scale: 0.96 }} onClick={() => sendPrompt(prompt)} disabled={!prompt.trim() || isGenerating} className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
               {isGenerating ? "Thinking…" : "Send"}
@@ -280,20 +325,25 @@ export default function DashboardPage() {
 
       <AnimatePresence>
         {showLimitModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowLimitModal(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <motion.div onClick={(e) => e.stopPropagation()} initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.92, opacity: 0 }} transition={{ type: "spring", stiffness: 400, damping: 30 }} className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
-                <span className="text-xl font-bold leading-none text-white">!</span>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} transition={{ type: "spring", stiffness: 350, damping: 28 }} className="relative w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
+              <button onClick={() => setShowLimitModal(false)} className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: "#f59e0b" }}>
+                <span className="text-2xl font-bold leading-none text-white">!</span>
               </div>
-              <h2 className="mt-4 text-lg font-semibold text-neutral-900">Out of credits for today</h2>
+              <h2 className="mt-5 text-xl font-semibold text-neutral-900">You've used all your credits today</h2>
               <p className="mt-2 text-sm text-neutral-500">
-                Your credits reset at midnight. Want more right now? Invite friends — each one gives you +1 credit.
+                Your credits will reset at 12:00 AM. Want more right now? Invite friends — each one gives you +1 credit, and 10 invites earns a bonus credit too.
               </p>
-              <div className="mt-5 flex flex-col gap-2">
-                <a href="/dashboard/invite" className="w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
+              <div className="mt-6 flex flex-col gap-2">
+                <a href="/dashboard/invite" className="w-full rounded-lg bg-neutral-900 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
                   Invite friends
                 </a>
-                <button onClick={() => setShowLimitModal(false)} className="w-full rounded-lg border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-50">
+                <button onClick={() => setShowLimitModal(false)} className="w-full rounded-lg border border-neutral-200 px-4 py-3 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-50">
                   Got it
                 </button>
               </div>

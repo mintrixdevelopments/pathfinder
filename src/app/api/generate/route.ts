@@ -1,6 +1,6 @@
 import { auth } from "../../../auth";
 import { NextResponse } from "next/server";
-import { redisGet, redisIncr } from "../../../lib/redis";
+import { redisGet, redisIncrByFloat } from "../../../lib/redis";
 
 const BASE_DAILY_LIMIT = 15;
 
@@ -31,13 +31,20 @@ function todayKey(email: string) {
   return `pf:usage:${email}:${new Date().toISOString().slice(0, 10)}`;
 }
 
+function costForActions(count: number): number {
+  if (count === 0) return 0;
+  if (count <= 3) return 1;
+  if (count <= 6) return 2;
+  return 3;
+}
+
 async function getCreditState(email: string) {
   const [usageRaw, bonusRaw] = await Promise.all([
     redisGet(todayKey(email)),
     redisGet(`pf:bonuscredits:${email}`),
   ]);
-  const used = usageRaw ? parseInt(usageRaw, 10) : 0;
-  const bonus = bonusRaw ? parseInt(bonusRaw, 10) : 0;
+  const used = usageRaw ? parseFloat(usageRaw) : 0;
+  const bonus = bonusRaw ? parseFloat(bonusRaw) : 0;
   return { used, limit: BASE_DAILY_LIMIT + bonus };
 }
 
@@ -161,7 +168,8 @@ export async function POST(request: Request) {
     result = fallbackReply(prompt.trim());
   }
 
-  const newUsed = await redisIncr(todayKey(email));
+  const cost = costForActions(result.actions.length);
+  const newUsed = await redisIncrByFloat(todayKey(email), cost);
 
   const status: "planned" | "chat" | "blocked" = result.blocked ? "blocked" : result.actions.length > 0 ? "planned" : "chat";
 

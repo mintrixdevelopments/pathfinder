@@ -23,6 +23,10 @@ export async function redisIncr(key: string): Promise<number> {
   const result = await redisCommand(["incr", key]);
   return Number(result);
 }
+export async function redisIncrByFloat(key: string, amount: number): Promise<number> {
+  const result = await redisCommand(["incrbyfloat", key, amount]);
+  return parseFloat(String(result));
+}
 export async function redisSetNX(key: string, value: string): Promise<number> {
   const result = await redisCommand(["setnx", key, value]);
   return Number(result);

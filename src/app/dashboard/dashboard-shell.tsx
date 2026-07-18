@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { ProjectSwitcher } from "./project-switcher";
 import { UserMenu } from "./user-menu";
+import { Logo } from "../../components/Logo";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard", icon: "grid" },
@@ -40,8 +41,8 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border">
-        <Link href="/" className="flex h-20 items-center border-b border-border px-5">
-          <img src="/logo-full.png" alt="Pathfinder" className="h-10 w-auto" />
+        <Link href="/" className="flex h-16 items-center border-b border-border px-5">
+          <Logo height={30} />
         </Link>
 
         <ProjectSwitcher />

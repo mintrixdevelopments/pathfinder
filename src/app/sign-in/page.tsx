@@ -1,10 +1,11 @@
 import { signIn } from "../../auth";
 import Link from "next/link";
+import { Logo } from "../../components/Logo";
 
 export default function SignInPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-white px-4">
-      <Link href="/"><img src="/logo-full.png" alt="Pathfinder" className="h-14 w-auto" /></Link>
+      <Link href="/"><Logo height={40} /></Link>
       <div className="w-full max-w-sm rounded-xl border border-neutral-200 p-6 text-center">
         <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
         <p className="mt-1 text-sm text-neutral-500">Sign in to continue to Pathfinder.</p>
@@ -26,7 +27,7 @@ export default function SignInPage() {
           </button>
         </form>
         <p className="mt-4 text-xs text-neutral-400">
-          New here? <Link href="/sign-up" className="font-medium text-neutral-700 underline">Sign up</Link> — same button, it creates your account instantly.
+          New here? <Link href="/sign-up" className="font-medium text-neutral-700 underline">Sign up</Link>
         </p>
       </div>
     </div>

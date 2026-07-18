@@ -1,6 +1,6 @@
 import { auth } from "../../../../auth";
 import { NextResponse } from "next/server";
-import { redisGet, redisIncr, redisSetNX } from "../../../../lib/redis";
+import { redisGet, redisIncr, redisIncrByFloat, redisSetNX } from "../../../../lib/redis";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -18,10 +18,10 @@ export async function POST(request: Request) {
   const normalizedCode = code.trim().toUpperCase();
   const ownerEmail = await redisGet(`pf:codeowner:${normalizedCode}`);
   if (!ownerEmail) {
-    return NextResponse.json({ error: "Invalid invite code" }, { status: 404 });
+    return NextResponse.json({ ok: false, message: "Invalid invite code" }, { status: 200 });
   }
   if (ownerEmail === email) {
-    return NextResponse.json({ error: "You can't redeem your own invite link" }, { status: 400 });
+    return NextResponse.json({ ok: false, message: "You can't redeem your own invite link" }, { status: 200 });
   }
 
   const setResult = await redisSetNX(`pf:redeemed:${email}`, "1");
@@ -30,10 +30,10 @@ export async function POST(request: Request) {
   }
 
   const newCount = await redisIncr(`pf:invitecount:${ownerEmail}`);
-  await redisIncr(`pf:bonuscredits:${ownerEmail}`);
+  await redisIncrByFloat(`pf:bonuscredits:${ownerEmail}`, 1);
   if (newCount === 10) {
-    await redisIncr(`pf:bonuscredits:${ownerEmail}`);
+    await redisIncrByFloat(`pf:bonuscredits:${ownerEmail}`, 1);
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, message: "Invite applied — thanks for joining Pathfinder!" });
 }
