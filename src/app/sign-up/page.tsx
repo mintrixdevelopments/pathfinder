@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { signIn } from "next-auth/react";
 import { Logo } from "../../components/Logo";
+import { GoogleIcon } from "../../components/GoogleIcon";
 
 function SignUpContent() {
   const searchParams = useSearchParams();
@@ -13,6 +15,7 @@ function SignUpContent() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const inviteCode = searchParams.get("ref")?.trim().toUpperCase() || "";
@@ -74,9 +77,23 @@ function SignUpContent() {
         <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
           {inviteCode && <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-sm text-emerald-800">Invite applied. Your friend receives their reward after you verify your account.</div>}
 
-          <a href="/api/auth/signin/google?callbackUrl=/dashboard" className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-800 transition hover:bg-neutral-50">
-            <span className="text-base font-semibold text-[#4285F4]">G</span> Continue with Google
-          </a>
+          <button
+            type="button"
+            disabled={googleLoading}
+            onClick={async () => {
+              setGoogleLoading(true);
+              setError("");
+              try {
+                await signIn("google", { callbackUrl: "/dashboard" });
+              } catch {
+                setGoogleLoading(false);
+                setError("Google sign-up could not start. Please try again.");
+              }
+            }}
+            className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-800 transition hover:bg-neutral-50 disabled:cursor-wait disabled:opacity-60"
+          >
+            <GoogleIcon /> {googleLoading ? "Connecting to Google…" : "Continue with Google"}
+          </button>
 
           <div className="my-5 flex items-center gap-3"><div className="h-px flex-1 bg-neutral-200" /><span className="text-xs text-neutral-400">or use email</span><div className="h-px flex-1 bg-neutral-200" /></div>
 

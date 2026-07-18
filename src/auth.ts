@@ -36,7 +36,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google" && user.email) {
-        await ensureGoogleUser({ email: user.email, name: user.name });
+        try {
+          await ensureGoogleUser({ email: user.email, name: user.name });
+        } catch (error) {
+          // A temporary Redis problem must not lock users out of Google OAuth.
+          console.error("Google account sync failed", error);
+        }
       }
       return true;
     },
