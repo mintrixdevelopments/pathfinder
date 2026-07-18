@@ -1,6 +1,7 @@
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://pathfinderlabs.vercel.app").replace(/\/$/, "");
-const FROM = process.env.SECURITY_EMAIL_FROM || "Pathfinder <noreply@pf.binuu.dev>";
+const FROM = process.env.SECURITY_EMAIL_FROM || "Pathfinder AI <noreply@pf.binuu.dev>";
+const SUBJECT_PREFIX = "[Development]";
 
 function escapeHtml(value: string): string {
   return value
@@ -47,7 +48,7 @@ function layout(input: {
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px">
             <tr>
               <td style="padding-bottom:52px">
-                <img src="${APP_URL}/logo-full.png" width="190" alt="Pathfinder" style="display:block;width:190px;height:auto;border:0">
+                <img src="cid:pathfinder-logo" width="168" alt="Pathfinder" style="display:block;width:168px;height:auto;border:0">
               </td>
             </tr>
             <tr>
@@ -59,9 +60,8 @@ function layout(input: {
               </td>
             </tr>
             <tr>
-              <td style="padding-top:52px;font-size:12px;line-height:19px;color:#9a9aa5;border-top:1px solid #eeeeef">
-                <div style="padding-top:20px">${escapeHtml(input.footer)}</div>
-                <div style="padding-top:5px">Pathfinder account security</div>
+              <td style="padding-top:52px;font-size:12px;line-height:19px;color:#9a9aa5">
+                <div style="padding-top:20px;border-top:1px solid #eeeeef">${escapeHtml(input.footer)}</div>
               </td>
             </tr>
           </table>
@@ -93,6 +93,13 @@ async function sendEmail(input: {
       subject: input.subject,
       html: input.html,
       text: input.text,
+      attachments: [
+        {
+          path: `${APP_URL}/email-logo.png`,
+          filename: "pathfinder-logo.png",
+          content_id: "pathfinder-logo",
+        },
+      ],
     }),
   });
 
@@ -111,7 +118,7 @@ export async function sendVerificationEmail(input: {
   const name = escapeHtml(input.name || "there");
   await sendEmail({
     to: input.to,
-    subject: "Verify your Pathfinder email",
+    subject: `${SUBJECT_PREFIX} Verify your Pathfinder email`,
     html: layout({
       title: "Verify your email",
       preview: "Complete your Pathfinder account setup.",
@@ -132,14 +139,14 @@ export async function sendPasswordResetEmail(input: {
   const url = `${APP_URL}/reset-password?token=${encodeURIComponent(input.token)}`;
   await sendEmail({
     to: input.to,
-    subject: "Reset your Pathfinder password",
+    subject: `${SUBJECT_PREFIX} Reset your Pathfinder password`,
     html: layout({
       title: "Reset your password",
       preview: "A password reset was requested for your Pathfinder account.",
       body: `<p style="margin:0">Hi ${escapeHtml(input.name || "there")},</p><p style="margin:14px 0 0">We received a request to reset your Pathfinder password. Choose a new password using the secure link below.</p>`,
       action: "Choose a new password",
       actionUrl: url,
-      footer: "This secure, single-use link expires in 30 minutes. If you did not request it, review your account security.",
+      footer: "This secure, single-use link expires in 30 minutes.",
     }),
     text: `A password reset was requested for your Pathfinder account.\n\nChoose a new password: ${url}\n\nThis secure, single-use link expires in 30 minutes.`,
   });
@@ -151,12 +158,12 @@ export async function sendPasswordChangedEmail(input: {
 }): Promise<void> {
   await sendEmail({
     to: input.to,
-    subject: "Your Pathfinder password was changed",
+    subject: `${SUBJECT_PREFIX} Your Pathfinder password was changed`,
     html: layout({
       title: "Password changed",
       preview: "Your Pathfinder account password was updated.",
       body: `<p style="margin:0">Hi ${escapeHtml(input.name || "there")},</p><p style="margin:14px 0 0">The password for your Pathfinder account was changed successfully.</p>`,
-      action: "Review account security",
+      action: "Open account settings",
       actionUrl: `${APP_URL}/dashboard/settings`,
       footer: "If you did not make this change, reset your password immediately and review your account activity.",
     }),
@@ -185,13 +192,13 @@ export async function sendNewDeviceEmail(input: {
 
   await sendEmail({
     to: input.to,
-    subject: "New sign-in to your Pathfinder account",
+    subject: `${SUBJECT_PREFIX} New device signed in to your Pathfinder account`,
     html: layout({
       title: "New sign-in to your account",
       preview: "Review a new sign-in to your Pathfinder account.",
       body: `<p style="margin:0">Hi ${escapeHtml(input.name || "there")},</p><p style="margin:14px 0 22px">A new device signed in to your Pathfinder account.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;border:1px solid #eeeeef;border-radius:12px;padding:18px 20px">${rows}</table>`,
-      secondary: `<h2 style="margin:0;font-size:21px;line-height:28px;letter-spacing:-0.4px;color:#171717">Don&#39;t recognize this activity?</h2><p style="margin:10px 0 0;font-size:15px;line-height:24px;color:#62626f">Review your account security and change your password immediately.</p><div style="padding-top:20px">${button("Review account security", `${APP_URL}/dashboard/settings`)}</div>`,
-      footer: "If this was you, no action is required.",
+      secondary: `<h2 style="margin:0;font-size:21px;line-height:28px;letter-spacing:-0.4px;color:#171717">Don&#39;t recognize this activity?</h2><p style="margin:10px 0 0;font-size:15px;line-height:24px;color:#62626f">Change your password and sign out every device connected to your account.</p><div style="padding-top:20px">${button("Secure my account", `${APP_URL}/dashboard/settings`)}</div>`,
+      footer: "You received this email because sign-in alerts are enabled for your Pathfinder account.",
     }),
     text: `New sign-in to your Pathfinder account\n\nSign-in type: ${input.signInType}\nDevice: ${input.device}\nLocation: ${input.location}\nIP address: ${input.ip}\nTime: ${input.time}\n\nReview account security: ${APP_URL}/dashboard/settings`,
   });

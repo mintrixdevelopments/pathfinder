@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "../../../../auth";
 import { getUser } from "../../../../lib/accounts";
 import { sendNewDeviceEmail } from "../../../../lib/email";
-import { redisDelete, redisExpire, redisSetNX } from "../../../../lib/redis";
+import { redisDelete, redisExpire, redisLPush, redisLTrim, redisSetNX } from "../../../../lib/redis";
 import { digestValue } from "../../../../lib/security";
 
 function readableDevice(userAgent: string): string {
@@ -46,6 +46,18 @@ export async function POST(request: Request) {
       ip,
       time: new Intl.DateTimeFormat("en-AU", { dateStyle: "long", timeStyle: "short", timeZone: "UTC" }).format(new Date()) + " UTC",
     });
+    const activityKey = `pf:security-events:${email}`;
+    await redisLPush(activityKey, JSON.stringify({
+      id: crypto.randomUUID(),
+      type: "new_sign_in",
+      signInType,
+      device: readableDevice(userAgent),
+      location: `${city}, ${country}`,
+      ip,
+      createdAt: new Date().toISOString(),
+    }));
+    await redisLTrim(activityKey, 0, 11);
+    await redisExpire(activityKey, 60 * 60 * 24 * 90);
     return NextResponse.json({ ok: true, newDevice: true });
   } catch (error) {
     await redisDelete(key).catch(() => null);

@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import { authenticateEmailPassword, ensureGoogleUser } from "./lib/accounts";
 import { checkRateLimit } from "./lib/rate-limit";
 import { normalizeEmail } from "./lib/security";
+import { redisGet } from "./lib/redis";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -47,9 +48,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, account }) {
       if (account?.provider) token.pathfinderProvider = account.provider;
+      const email = typeof token.email === "string" ? token.email.trim().toLowerCase() : "";
+      if (email) {
+        try {
+          const currentVersion = Number.parseInt((await redisGet(`pf:session-version:${email}`)) || "0", 10) || 0;
+          if (account) token.pathfinderSessionVersion = currentVersion;
+          const tokenVersion = typeof token.pathfinderSessionVersion === "number" ? token.pathfinderSessionVersion : 0;
+          token.pathfinderRevoked = tokenVersion !== currentVersion;
+        } catch (error) {
+          console.error("Session revocation check failed", error);
+        }
+      }
       return token;
     },
     async session({ session, token }) {
+      if (token.pathfinderRevoked) {
+        session.user = undefined as never;
+        return session;
+      }
       (session as typeof session & { pathfinderProvider?: string }).pathfinderProvider =
         typeof token.pathfinderProvider === "string" ? token.pathfinderProvider : undefined;
       return session;

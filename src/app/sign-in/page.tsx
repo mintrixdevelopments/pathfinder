@@ -18,6 +18,7 @@ function SignInContent() {
   const [error, setError] = useState("");
   const verified = searchParams.get("verified") === "1";
   const reset = searchParams.get("reset") === "1";
+  const signedOutEverywhere = searchParams.get("signedOut") === "all";
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,9 +54,13 @@ function SignInContent() {
         </div>
 
         <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-          {(verified || reset) && (
+          {(verified || reset || signedOutEverywhere) && (
             <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-sm text-emerald-800">
-              {verified ? "Email verified. Your Pathfinder account is ready." : "Password updated. Sign in with your new password."}
+              {verified
+                ? "Email verified. Your Pathfinder account is ready."
+                : reset
+                  ? "Password updated. Sign in with your new password."
+                  : "Every Pathfinder session has been signed out."}
             </div>
           )}
 

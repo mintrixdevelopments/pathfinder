@@ -70,6 +70,19 @@ export async function redisIncr(key: string): Promise<number> {
   return Number(result);
 }
 
+export async function redisLPush(key: string, value: string): Promise<number> {
+  return Number(await redisCommand(["LPUSH", key, value]));
+}
+
+export async function redisLRange(key: string, start: number, stop: number): Promise<string[]> {
+  const result = await redisCommand(["LRANGE", key, start, stop]);
+  return Array.isArray(result) ? result.map(String) : [];
+}
+
+export async function redisLTrim(key: string, start: number, stop: number): Promise<void> {
+  await redisCommand(["LTRIM", key, start, stop]);
+}
+
 export async function redisEval<T>(
   script: string,
   keys: string[],
