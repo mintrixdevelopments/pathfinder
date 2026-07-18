@@ -25,7 +25,10 @@ export async function POST(request: Request) {
   const key = `pf:device:${email}:${digestValue(deviceId)}`;
   const created = await redisSetNX(key, new Date().toISOString());
   await redisExpire(key, 60 * 60 * 24 * 365);
-  if (created !== 1) return NextResponse.json({ ok: true, newDevice: false });
+
+  if (created !== 1) {
+    return NextResponse.json({ ok: true, newDevice: false });
+  }
 
   const user = await getUser(email).catch(() => null);
   const rawCity = request.headers.get("x-vercel-ip-city") || "Unknown city";
@@ -58,9 +61,9 @@ export async function POST(request: Request) {
     }));
     await redisLTrim(activityKey, 0, 11);
     await redisExpire(activityKey, 60 * 60 * 24 * 90);
-    return NextResponse.json({ ok: true, newDevice: true });
+    return NextResponse.json({ ok: true, newDevice: created === 1 });
   } catch (error) {
-    await redisDelete(key).catch(() => null);
+    if (created === 1) await redisDelete(key).catch(() => null);
     console.error("New device email failed", error);
     return NextResponse.json({ error: "Security notification could not be sent" }, { status: 503 });
   }

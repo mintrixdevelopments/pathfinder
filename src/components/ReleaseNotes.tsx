@@ -4,8 +4,25 @@ import { useEffect, useState } from "react";
 
 const releases = [
   {
-    version: "0.3.0",
+    version: "0.3.1",
     label: "Current",
+    date: "19 July 2026",
+    author: "Mintrix Developments",
+    title: "Pathfinder intelligence",
+    description:
+      "A major intelligence and communication update giving complex Roblox work deeper engineering while keeping everyday requests fast.",
+    changes: [
+      "Added automatic Quick and Builder intelligence routing",
+      "Added deeper Roblox architecture, scripting, data, and security planning",
+      "Added clear generation costs before and after each request",
+      "Added manual Quick and Builder controls when users want them",
+      "Rebuilt every Pathfinder account email with embedded branding",
+      "Improved new-device alerts and password session security",
+    ],
+  },
+  {
+    version: "0.3.0",
+    label: "Accounts",
     date: "18 July 2026",
     author: "Mintrix Developments",
     title: "Pathfinder accounts",
@@ -134,7 +151,7 @@ export function ReleaseNotes() {
         <SparkleIcon />
         <span>Updates</span>
         <span className="rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-          0.3.0
+          0.3.1
         </span>
       </button>
 

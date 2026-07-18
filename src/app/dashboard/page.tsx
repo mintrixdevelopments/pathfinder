@@ -3,6 +3,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBuilds, type BuildAction } from "./builds-context";
+import {
+  generationCostForRoute,
+  previewAiRoute,
+  routeLabel,
+  type AiModeSelection,
+} from "../../lib/ai-routing";
 
 type BadgeStatus = "pending" | "success" | "blocked";
 
@@ -13,6 +19,8 @@ interface ChatMessage {
   actions?: BuildAction[];
   suggestions?: string[];
   badgeStatus?: BadgeStatus;
+  modeLabel?: string;
+  creditsCharged?: number;
 }
 
 interface CreditState {
@@ -90,6 +98,7 @@ export default function DashboardPage() {
   const [creditState, setCreditState] = useState<CreditState | null>(null);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [mode, setMode] = useState<AiModeSelection>("auto");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -158,6 +167,7 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: text,
+          mode,
           history: messages
             .filter((message) => message.role !== "system" && message.content)
             .slice(-8)
@@ -180,6 +190,7 @@ export default function DashboardPage() {
       const data: {
         id: string; prompt: string; message: string; actions: BuildAction[]; suggestions: string[];
         status: "planned" | "chat" | "blocked"; creditsUsed: number; creditsLimit: number;
+        creditsCharged: number; modeLabel: string;
       } = await res.json();
 
       setCreditsUsed(data.creditsUsed);
@@ -189,7 +200,15 @@ export default function DashboardPage() {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === pendingId
-            ? { ...m, content: data.message, actions: data.actions, suggestions: data.suggestions, badgeStatus: data.status === "blocked" ? "blocked" : "success" }
+            ? {
+                ...m,
+                content: data.message,
+                actions: data.actions,
+                suggestions: data.suggestions,
+                badgeStatus: data.status === "blocked" ? "blocked" : "success",
+                modeLabel: data.modeLabel,
+                creditsCharged: data.creditsCharged,
+              }
             : m
         )
       );
@@ -216,6 +235,13 @@ export default function DashboardPage() {
   }
 
   const creditsRemaining = creditState?.remaining ?? (creditsLimit !== null && creditsUsed !== null ? Math.max(0, creditsLimit - creditsUsed) : null);
+  const previewRoute = previewAiRoute(prompt, mode);
+  const previewCost = generationCostForRoute(previewRoute);
+  const previewLabel = prompt.trim()
+    ? `${routeLabel(previewRoute).replace("Pathfinder ", "")} · ${previewCost === 0 ? "No generation" : `${previewCost} generation${previewCost === 1 ? "" : "s"}`}`
+    : mode === "auto"
+      ? "Smart routing"
+      : `${mode === "builder" ? "Builder" : "Quick"} · ${mode === "builder" ? "2 generations" : "1 generation"}`;
   const creditTheme =
     creditsRemaining === null ? "border-border bg-surface text-muted-foreground"
     : creditsRemaining <= 0 ? "text-white" : creditsRemaining <= 3 ? "text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700";
@@ -304,6 +330,13 @@ export default function DashboardPage() {
                           <SuggestionChips items={msg.suggestions} onPick={(s) => setPrompt(s)} />
                         </div>
                       )}
+                      {!isPending && msg.modeLabel && (
+                        <div className="mt-3 flex items-center gap-1.5 border-t border-border pt-2.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
+                          <span>{msg.modeLabel.replace("Pathfinder ", "")}</span>
+                          <span>·</span>
+                          <span>{msg.creditsCharged === 0 ? "Local" : `${msg.creditsCharged} generation${msg.creditsCharged === 1 ? "" : "s"}`}</span>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 );
@@ -320,14 +353,27 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 text-xs text-muted">
             <span>{activeProject ? `Initiative: ${activeProject.name}` : "No initiative selected"}</span>
             <span className="text-neutral-300">·</span>
-            <span>Gemini 3.1 Flash Lite</span>
+            <label className="sr-only" htmlFor="pathfinder-ai-mode">Pathfinder AI mode</label>
+            <select
+              id="pathfinder-ai-mode"
+              value={mode}
+              onChange={(event) => setMode(event.target.value as AiModeSelection)}
+              disabled={isGenerating}
+              className="cursor-pointer bg-transparent font-medium text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              title="Auto chooses Quick or Builder without spending an extra AI request."
+            >
+              <option value="auto">Auto</option>
+              <option value="quick">Quick</option>
+              <option value="builder">Builder</option>
+            </select>
+            <span className="hidden text-muted sm:inline">{previewLabel}</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="hidden text-right sm:block">
               <p className="text-[11px] font-medium text-neutral-600">
                 {creditState ? `${Math.max(0, creditState.dailyAllowance - creditState.dailyUsed)} daily · ${creditState.bonusCredits} bonus` : "Loading allowance…"}
               </p>
-              <p className="text-[10px] text-neutral-400">1 generation per AI request</p>
+              <p className="text-[10px] text-neutral-400">Quick uses 1 · Builder uses 2</p>
             </div>
             <span title="Greetings and basic help are handled locally without using Gemini." className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${creditTheme}`} style={creditBg ? { backgroundColor: creditBg, borderColor: creditBg } : undefined}>
               {creditsRemaining !== null ? `${Math.round(creditsRemaining)} generations left` : "…"}

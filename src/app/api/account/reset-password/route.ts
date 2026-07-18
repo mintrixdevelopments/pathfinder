@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { resetPasswordWithToken } from "../../../../lib/accounts";
 import { sendPasswordChangedEmail } from "../../../../lib/email";
+import { redisIncr } from "../../../../lib/redis";
 import { checkRateLimit, requestIp } from "../../../../lib/rate-limit";
 import { validatePassword } from "../../../../lib/security";
 
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: "This reset link is invalid or has expired." }, { status: 400 });
     }
+    await redisIncr(`pf:session-version:${user.email.toLowerCase()}`);
     await sendPasswordChangedEmail({ to: user.email, name: user.name }).catch((error) => {
       console.error("Password changed email failed", error);
     });

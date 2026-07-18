@@ -1,7 +1,13 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://pathfinderlabs.vercel.app").replace(/\/$/, "");
 const FROM = process.env.SECURITY_EMAIL_FROM || "Pathfinder AI <noreply@pf.binuu.dev>";
 const SUBJECT_PREFIX = "[Development]";
+const LOGO_CID = "pathfinder-logo";
+
+let logoContentPromise: Promise<string | null> | null = null;
 
 function escapeHtml(value: string): string {
   return value
@@ -13,23 +19,45 @@ function escapeHtml(value: string): string {
 }
 
 function button(label: string, href: string): string {
-  return `<a href="${escapeHtml(href)}" style="display:inline-block;background:#171717;color:#ffffff;text-decoration:none;font-size:15px;font-weight:650;line-height:20px;padding:13px 19px;border-radius:9px">${escapeHtml(label)}</a>`;
+  return `<a href="${escapeHtml(href)}" style="display:inline-block;background:#171717;color:#ffffff;text-decoration:none;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;font-size:15px;font-weight:700;line-height:20px;padding:14px 20px;border-radius:8px">${escapeHtml(label)}</a>`;
 }
 
-function layout(input: {
+function detailCard(rows: Array<[string, string]>): string {
+  const content = rows
+    .map(
+      ([label, value]) => `
+        <tr>
+          <td class="detail-label" style="padding:6px 22px 6px 0;color:#9999a5;font-size:15px;line-height:22px;white-space:nowrap">${escapeHtml(label)}</td>
+          <td style="padding:6px 0;color:#19191f;font-size:15px;font-weight:700;line-height:22px">${escapeHtml(value)}</td>
+        </tr>`
+    )
+    .join("");
+
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #eeeeef;border-radius:10px;background:#fafafa">
+    <tr>
+      <td style="padding:22px 26px">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${content}</table>
+      </td>
+    </tr>
+  </table>`;
+}
+
+function emailLayout(input: {
   title: string;
   preview: string;
-  body: string;
-  action?: string;
-  actionUrl?: string;
+  content: string;
+  primaryAction?: string;
+  primaryActionUrl?: string;
+  panel?: string;
   secondary?: string;
   footer: string;
 }): string {
-  const action = input.action && input.actionUrl
-    ? `<div style="padding-top:26px">${button(input.action, input.actionUrl)}</div>`
+  const action = input.primaryAction && input.primaryActionUrl
+    ? `<div style="padding-top:28px">${button(input.primaryAction, input.primaryActionUrl)}</div>`
     : "";
+  const panel = input.panel ? `<div style="padding-top:28px">${input.panel}</div>` : "";
   const secondary = input.secondary
-    ? `<div style="padding-top:38px">${input.secondary}</div>`
+    ? `<div style="padding-top:48px">${input.secondary}</div>`
     : "";
 
   return `<!doctype html>
@@ -38,30 +66,40 @@ function layout(input: {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="x-apple-disable-message-reformatting">
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
     <title>${escapeHtml(input.title)}</title>
+    <style>
+      @media only screen and (max-width: 600px) {
+        .email-shell { padding: 34px 20px !important; }
+        .email-title { font-size: 30px !important; line-height: 37px !important; }
+        .detail-label { width: 104px !important; white-space: normal !important; }
+      }
+    </style>
   </head>
-  <body style="margin:0;background:#ffffff;color:#171717;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(input.preview)}</div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ffffff">
+  <body style="margin:0;padding:0;background:#ffffff;color:#17171c;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;-webkit-font-smoothing:antialiased">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${escapeHtml(input.preview)}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;background:#ffffff">
       <tr>
-        <td align="center" style="padding:48px 20px">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px">
+        <td class="email-shell" align="center" style="padding:64px 24px 48px">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;max-width:640px">
             <tr>
-              <td style="padding-bottom:52px">
-                <img src="cid:pathfinder-logo" width="168" alt="Pathfinder" style="display:block;width:168px;height:auto;border:0">
+              <td align="center" style="padding-bottom:66px">
+                <img src="cid:${LOGO_CID}" width="190" alt="Pathfinder" style="display:block;width:190px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none">
               </td>
             </tr>
             <tr>
               <td>
-                <h1 style="margin:0;font-size:32px;line-height:40px;letter-spacing:-1px;font-weight:750;color:#171717">${escapeHtml(input.title)}</h1>
-                <div style="margin-top:20px;font-size:16px;line-height:26px;color:#62626f">${input.body}</div>
+                <h1 class="email-title" style="margin:0;color:#17171c;font-size:38px;font-weight:750;letter-spacing:-1.25px;line-height:46px">${escapeHtml(input.title)}</h1>
+                <div style="padding-top:26px;color:#686875;font-size:17px;line-height:28px">${input.content}</div>
+                ${panel}
                 ${action}
                 ${secondary}
               </td>
             </tr>
             <tr>
-              <td style="padding-top:52px;font-size:12px;line-height:19px;color:#9a9aa5">
-                <div style="padding-top:20px;border-top:1px solid #eeeeef">${escapeHtml(input.footer)}</div>
+              <td style="padding-top:64px">
+                <div style="border-top:1px solid #eeeeef;padding-top:22px;color:#a0a0ab;font-size:12px;line-height:19px">${escapeHtml(input.footer)}</div>
+                <div style="padding-top:8px;color:#b0b0b9;font-size:11px;line-height:17px">Pathfinder · Built by Mintrix Developments</div>
               </td>
             </tr>
           </table>
@@ -70,6 +108,18 @@ function layout(input: {
     </table>
   </body>
 </html>`;
+}
+
+async function getLogoContent(): Promise<string | null> {
+  if (!logoContentPromise) {
+    logoContentPromise = readFile(join(process.cwd(), "public", "email-logo.png"))
+      .then((file) => file.toString("base64"))
+      .catch((error) => {
+        console.error("Pathfinder email logo could not be embedded", error);
+        return null;
+      });
+  }
+  return logoContentPromise;
 }
 
 async function sendEmail(input: {
@@ -81,6 +131,18 @@ async function sendEmail(input: {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("RESEND_API_KEY is not configured");
 
+  const logoContent = await getLogoContent();
+  const html = logoContent
+    ? input.html
+    : input.html.replace(`cid:${LOGO_CID}`, `${APP_URL}/email-logo.png`);
+  const attachments = logoContent
+    ? [{
+        content: logoContent,
+        filename: "pathfinder-logo.png",
+        content_id: LOGO_CID,
+      }]
+    : undefined;
+
   const response = await fetch(RESEND_ENDPOINT, {
     method: "POST",
     headers: {
@@ -91,15 +153,9 @@ async function sendEmail(input: {
       from: FROM,
       to: [input.to],
       subject: input.subject,
-      html: input.html,
+      html,
       text: input.text,
-      attachments: [
-        {
-          path: `${APP_URL}/email-logo.png`,
-          filename: "pathfinder-logo.png",
-          content_id: "pathfinder-logo",
-        },
-      ],
+      attachments,
     }),
   });
 
@@ -116,18 +172,19 @@ export async function sendVerificationEmail(input: {
 }): Promise<void> {
   const url = `${APP_URL}/verify-email?token=${encodeURIComponent(input.token)}`;
   const name = escapeHtml(input.name || "there");
+
   await sendEmail({
     to: input.to,
     subject: `${SUBJECT_PREFIX} Verify your Pathfinder email`,
-    html: layout({
+    html: emailLayout({
       title: "Verify your email",
-      preview: "Complete your Pathfinder account setup.",
-      body: `<p style="margin:0">Hi ${name},</p><p style="margin:14px 0 0">Confirm your email address to finish setting up your Pathfinder account.</p>`,
-      action: "Verify email address",
-      actionUrl: url,
-      footer: "This verification link expires in one hour.",
+      preview: "Finish creating your Pathfinder account.",
+      content: `<p style="margin:0">Hi ${name},</p><p style="margin:16px 0 0">Use the button below to verify this email address and finish creating your Pathfinder account.</p>`,
+      primaryAction: "Verify email address",
+      primaryActionUrl: url,
+      footer: "This single-use verification link expires in one hour.",
     }),
-    text: `Hi ${input.name || "there"},\n\nConfirm your email address to finish setting up your Pathfinder account:\n${url}\n\nThis verification link expires in one hour.`,
+    text: `Hi ${input.name || "there"},\n\nVerify your email address to finish creating your Pathfinder account:\n${url}\n\nThis single-use verification link expires in one hour.`,
   });
 }
 
@@ -137,18 +194,21 @@ export async function sendPasswordResetEmail(input: {
   token: string;
 }): Promise<void> {
   const url = `${APP_URL}/reset-password?token=${encodeURIComponent(input.token)}`;
+  const name = escapeHtml(input.name || "there");
+
   await sendEmail({
     to: input.to,
     subject: `${SUBJECT_PREFIX} Reset your Pathfinder password`,
-    html: layout({
+    html: emailLayout({
       title: "Reset your password",
       preview: "A password reset was requested for your Pathfinder account.",
-      body: `<p style="margin:0">Hi ${escapeHtml(input.name || "there")},</p><p style="margin:14px 0 0">We received a request to reset your Pathfinder password. Choose a new password using the secure link below.</p>`,
-      action: "Choose a new password",
-      actionUrl: url,
+      content: `<p style="margin:0">Hi ${name},</p><p style="margin:16px 0 0">A password reset was requested for your Pathfinder account. Choose a new password using the secure link below.</p>`,
+      primaryAction: "Choose a new password",
+      primaryActionUrl: url,
+      secondary: `<h2 style="margin:0;color:#17171c;font-size:22px;font-weight:750;letter-spacing:-0.45px;line-height:29px">Wasn&#39;t you?</h2><p style="margin:12px 0 0;color:#686875;font-size:15px;line-height:25px">Do not share this link. Use it to replace your password, then sign out every device from Pathfinder settings.</p>`,
       footer: "This secure, single-use link expires in 30 minutes.",
     }),
-    text: `A password reset was requested for your Pathfinder account.\n\nChoose a new password: ${url}\n\nThis secure, single-use link expires in 30 minutes.`,
+    text: `A password reset was requested for your Pathfinder account.\n\nChoose a new password: ${url}\n\nThis secure, single-use link expires in 30 minutes. Do not share it.`,
   });
 }
 
@@ -156,18 +216,21 @@ export async function sendPasswordChangedEmail(input: {
   to: string;
   name: string;
 }): Promise<void> {
+  const name = escapeHtml(input.name || "there");
+
   await sendEmail({
     to: input.to,
     subject: `${SUBJECT_PREFIX} Your Pathfinder password was changed`,
-    html: layout({
+    html: emailLayout({
       title: "Password changed",
-      preview: "Your Pathfinder account password was updated.",
-      body: `<p style="margin:0">Hi ${escapeHtml(input.name || "there")},</p><p style="margin:14px 0 0">The password for your Pathfinder account was changed successfully.</p>`,
-      action: "Open account settings",
-      actionUrl: `${APP_URL}/dashboard/settings`,
-      footer: "If you did not make this change, reset your password immediately and review your account activity.",
+      preview: "Your Pathfinder password was changed.",
+      content: `<p style="margin:0">Hi ${name},</p><p style="margin:16px 0 0">Your Pathfinder password was changed successfully. Existing sessions have been signed out and will need to authenticate again.</p>`,
+      primaryAction: "Sign in to Pathfinder",
+      primaryActionUrl: `${APP_URL}/sign-in`,
+      secondary: `<h2 style="margin:0;color:#17171c;font-size:22px;font-weight:750;letter-spacing:-0.45px;line-height:29px">Don&#39;t recognize this change?</h2><p style="margin:12px 0 0;color:#686875;font-size:15px;line-height:25px">Reset your password immediately using a trusted device.</p><div style="padding-top:20px">${button("Reset password", `${APP_URL}/forgot-password`)}</div>`,
+      footer: "This is an automated Pathfinder account security notification.",
     }),
-    text: `Your Pathfinder password was changed.\n\nIf you did not make this change, review your account security immediately: ${APP_URL}/dashboard/settings`,
+    text: `Your Pathfinder password was changed and existing sessions were signed out.\n\nIf you did not make this change, reset it immediately: ${APP_URL}/forgot-password`,
   });
 }
 
@@ -180,26 +243,43 @@ export async function sendNewDeviceEmail(input: {
   ip: string;
   time: string;
 }): Promise<void> {
-  const rows = [
+  const details = detailCard([
     ["Sign-in type", input.signInType],
     ["Device", input.device],
     ["Location", input.location],
     ["IP address", input.ip],
     ["Time", input.time],
-  ]
-    .map(([label, value]) => `<tr><td style="padding:6px 18px 6px 0;color:#a0a0aa;white-space:nowrap">${escapeHtml(label)}</td><td style="padding:6px 0;font-weight:650;color:#24242a">${escapeHtml(value)}</td></tr>`)
-    .join("");
+  ]);
 
   await sendEmail({
     to: input.to,
     subject: `${SUBJECT_PREFIX} New device signed in to your Pathfinder account`,
-    html: layout({
+    html: emailLayout({
       title: "New sign-in to your account",
-      preview: "Review a new sign-in to your Pathfinder account.",
-      body: `<p style="margin:0">Hi ${escapeHtml(input.name || "there")},</p><p style="margin:14px 0 22px">A new device signed in to your Pathfinder account.</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;border:1px solid #eeeeef;border-radius:12px;padding:18px 20px">${rows}</table>`,
-      secondary: `<h2 style="margin:0;font-size:21px;line-height:28px;letter-spacing:-0.4px;color:#171717">Don&#39;t recognize this activity?</h2><p style="margin:10px 0 0;font-size:15px;line-height:24px;color:#62626f">Change your password and sign out every device connected to your account.</p><div style="padding-top:20px">${button("Secure my account", `${APP_URL}/dashboard/settings`)}</div>`,
-      footer: "You received this email because sign-in alerts are enabled for your Pathfinder account.",
+      preview: "A new device signed in to your Pathfinder account.",
+      content: `<p style="margin:0">A new device just signed in to your Pathfinder account. Review the details below.</p>`,
+      panel: details,
+      secondary: `<h2 style="margin:0;color:#17171c;font-size:22px;font-weight:750;letter-spacing:-0.45px;line-height:29px">Don&#39;t recognize this activity?</h2><p style="margin:12px 0 0;color:#686875;font-size:15px;line-height:25px">Change your password and sign out every device connected to your account.</p><div style="padding-top:20px">${button("Secure my account", `${APP_URL}/dashboard/settings`)}</div>`,
+      footer: "This alert was sent because Pathfinder detected a browser it had not seen on your account before.",
     }),
-    text: `New sign-in to your Pathfinder account\n\nSign-in type: ${input.signInType}\nDevice: ${input.device}\nLocation: ${input.location}\nIP address: ${input.ip}\nTime: ${input.time}\n\nReview account security: ${APP_URL}/dashboard/settings`,
+    text: `New sign-in to your Pathfinder account\n\nSign-in type: ${input.signInType}\nDevice: ${input.device}\nLocation: ${input.location}\nIP address: ${input.ip}\nTime: ${input.time}\n\nIf this was not you, secure your account: ${APP_URL}/dashboard/settings`,
+  });
+}
+
+export async function sendSecurityTestEmail(input: { to: string; name: string }): Promise<void> {
+  const name = escapeHtml(input.name || "there");
+
+  await sendEmail({
+    to: input.to,
+    subject: `${SUBJECT_PREFIX} Pathfinder email delivery test`,
+    html: emailLayout({
+      title: "Email delivery confirmed",
+      preview: "Pathfinder security email delivery is working.",
+      content: `<p style="margin:0">Hi ${name},</p><p style="margin:16px 0 0">Pathfinder successfully delivered this message to your verified email address.</p>`,
+      primaryAction: "Open Pathfinder settings",
+      primaryActionUrl: `${APP_URL}/dashboard/settings`,
+      footer: "This delivery test was requested from your Pathfinder account settings.",
+    }),
+    text: `Pathfinder successfully delivered a security email to ${input.to}.`,
   });
 }

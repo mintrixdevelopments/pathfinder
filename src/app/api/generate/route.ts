@@ -1,6 +1,13 @@
 import { auth } from "../../../auth";
 import { NextResponse } from "next/server";
 import { redisEval, redisGet } from "../../../lib/redis";
+import {
+  generationCostForRoute,
+  routeAiPrompt,
+  routeLabel,
+  type AiModeSelection,
+  type AiRoute,
+} from "../../../lib/ai-routing";
 
 const BASE_DAILY_LIMIT = 15;
 const GLOBAL_DAILY_LIMIT = Math.max(
@@ -36,6 +43,8 @@ interface GenerateResponse {
   creditsUsed: number;
   creditsLimit: number;
   creditsCharged: number;
+  mode: AiRoute;
+  modeLabel: string;
 }
 
 const DEFAULT_SUGGESTIONS = [
@@ -45,24 +54,58 @@ const DEFAULT_SUGGESTIONS = [
   "Add a leaderboard tracking player wins",
 ];
 
-const SYSTEM_PROMPT = `You are Pathfinder, an AI Roblox developer and planning platform created by Mintrix Developments.
+const PRODUCT_CONTEXT = `You are Pathfinder, an AI Roblox developer and planning platform created by Mintrix Developments.
 
 Pathfinder product facts:
 - Pathfinder is created and operated by Mintrix Developments, an independent two-person development team.
 - Pathfinder turns plain-language Roblox ideas into structured build plans and is being developed toward direct Roblox Studio execution.
 - You are Pathfinder. Never say that Google created, trained, or owns Pathfinder.
-- Gemini 3.1 Flash Lite is the underlying AI model used for complex planning, but Pathfinder is the product and identity.
+- Google Gemini models provide underlying inference, but Pathfinder's product, orchestration, memory, systems, and identity are built by Mintrix Developments.
 - Speak confidently as Pathfinder and retain relevant context from the supplied conversation history.
 
-Classify the request as BUILD, UNCLEAR, or BLOCKED.
+Roblox engineering rules:
+- Use modern Luau and Roblox APIs. Do not invent services, properties, events, or methods.
+- Put authority, purchases, rewards, inventory changes, and saved data on the server.
+- Treat every client request as untrusted and describe server-side validation and rate limiting.
+- Prefer UpdateAsync for persistent mutations and include retries, failure states, and graceful shutdown saving where relevant.
+- State the intended Roblox Explorer location for scripts, modules, remotes, UI, and models.
+- Keep dependencies and execution order explicit so the future Pathfinder Studio plugin can execute the plan.`;
 
-- BUILD: Give one short confirmation and 1-14 concrete actions scaled to complexity.
+const QUICK_SYSTEM_PROMPT = `${PRODUCT_CONTEXT}
+
+You are in Pathfinder Quick mode. Handle lightweight Roblox questions, early ideas, clarification, and small planning tasks quickly.
+
+Classify the request as BUILD, UNCLEAR, or BLOCKED.
+- BUILD: Give one concise confirmation and 1-7 concrete actions.
 - UNCLEAR: Ask one useful clarifying question and provide up to four suggestions.
 - BLOCKED: Briefly refuse unsafe or abusive requests.
 
 Allowed action types: UI, Script, Datastore, Model.
 Return only valid JSON:
 {"message":"...","actions":[{"type":"UI","description":"..."}],"suggestions":[],"blocked":false}`;
+
+const BUILDER_SYSTEM_PROMPT = `${PRODUCT_CONTEXT}
+
+You are in Pathfinder Builder mode. Work like a senior Roblox systems engineer. Produce a serious implementation plan for coding, debugging, architecture, security, data, UI, and multi-system game requests.
+
+Classify the request as BUILD, UNCLEAR, or BLOCKED.
+- BUILD: Give a decisive summary and 3-16 ordered implementation actions scaled to the request.
+- UNCLEAR: Ask only the single question that genuinely blocks a safe implementation. Otherwise state a reasonable assumption and continue.
+- BLOCKED: Briefly refuse unsafe or abusive requests.
+
+Every BUILD plan must, where relevant:
+- separate server, client, shared modules, UI, remotes, models, and persistent data;
+- name concrete scripts or modules and their exact Explorer locations;
+- explain remote validation, permissions, cooldowns, and anti-exploit boundaries;
+- describe data schemas, UpdateAsync behavior, retries, session conflicts, and shutdown handling;
+- order dependencies before consumers;
+- finish with verification or play-test coverage;
+- avoid vague actions such as "add scripting" or "make a UI".
+
+Allowed action types: UI, Script, Datastore, Model.
+Each action description must be implementation-ready, specific, and no longer than 420 characters.
+Return only valid JSON:
+{"message":"...","actions":[{"type":"Script","description":"Create ServerScriptService/... and ..."}],"suggestions":[],"blocked":false}`;
 
 function dateStamp() {
   return new Date().toISOString().slice(0, 10);
@@ -136,7 +179,7 @@ function localConversationReply(prompt: string): AiResult | null {
 
   if (/(what model|which model|are you gemini|are you google|did google (make|create|train) you)/.test(clean)) {
     return {
-      message: "I’m Pathfinder, created by Mintrix Developments. I use Gemini 3.1 Flash Lite as the underlying model for complex planning, but Pathfinder’s product, systems, and identity are built by Mintrix Developments.",
+      message: "I’m Pathfinder, created by Mintrix Developments. I use a smart mix of AI models underneath for quick help and deeper Roblox engineering, while Pathfinder’s product, orchestration, and identity are built by Mintrix Developments.",
       actions: [],
       suggestions: [],
       blocked: false,
@@ -200,57 +243,64 @@ local globalUsed = tonumber(redis.call('GET', KEYS[3]) or '0')
 local dailyLimit = tonumber(ARGV[1])
 local globalLimit = tonumber(ARGV[2])
 local ttl = tonumber(ARGV[3])
+local cost = tonumber(ARGV[4])
 
 if globalUsed >= globalLimit then
-  return {-2, userUsed, bonus, globalUsed, 0}
+  return {-2, userUsed, bonus, globalUsed, 0, 0}
 end
 
-local source = 0
-if userUsed < dailyLimit then
-  userUsed = redis.call('INCR', KEYS[1])
+local dailyAvailable = math.max(0, dailyLimit - userUsed)
+local dailyCharge = math.min(cost, dailyAvailable)
+local bonusCharge = cost - dailyCharge
+
+if bonus < bonusCharge then
+  return {-1, userUsed, bonus, globalUsed, 0, 0}
+end
+
+if dailyCharge > 0 then
+  userUsed = redis.call('INCRBY', KEYS[1], dailyCharge)
   redis.call('EXPIRE', KEYS[1], ttl)
-  source = 1
-elseif bonus > 0 then
-  bonus = redis.call('DECR', KEYS[2])
-  source = 2
-else
-  return {-1, userUsed, bonus, globalUsed, 0}
+end
+if bonusCharge > 0 then
+  bonus = redis.call('DECRBY', KEYS[2], bonusCharge)
 end
 
 globalUsed = redis.call('INCR', KEYS[3])
 redis.call('EXPIRE', KEYS[3], ttl)
-return {1, userUsed, bonus, globalUsed, source}
+return {1, userUsed, bonus, globalUsed, dailyCharge, bonusCharge}
 `;
 
 const REFUND_SCRIPT = `
 local userUsed = tonumber(redis.call('GET', KEYS[1]) or '0')
 local globalUsed = tonumber(redis.call('GET', KEYS[3]) or '0')
-local source = tonumber(ARGV[1])
-if source == 1 and userUsed > 0 then redis.call('DECR', KEYS[1]) end
-if source == 2 then redis.call('INCR', KEYS[2]) end
+local dailyCharge = tonumber(ARGV[1])
+local bonusCharge = tonumber(ARGV[2])
+if dailyCharge > 0 and userUsed >= dailyCharge then redis.call('DECRBY', KEYS[1], dailyCharge) end
+if bonusCharge > 0 then redis.call('INCRBY', KEYS[2], bonusCharge) end
 if globalUsed > 0 then redis.call('DECR', KEYS[3]) end
 return 1
 `;
 
-async function reserveGeminiRequest(email: string) {
+async function reserveGeminiRequest(email: string, cost: number) {
   const result = await redisEval<number[]>(
     RESERVE_SCRIPT,
     [userUsageKey(email), `pf:bonuscredits:${email}`, globalUsageKey()],
-    [BASE_DAILY_LIMIT, GLOBAL_DAILY_LIMIT, USAGE_TTL_SECONDS]
+    [BASE_DAILY_LIMIT, GLOBAL_DAILY_LIMIT, USAGE_TTL_SECONDS, cost]
   );
   return {
     code: Number(result[0]),
     userUsed: Number(result[1]),
     bonusCredits: Number(result[2]),
-    source: Number(result[4]),
+    dailyCharge: Number(result[4]),
+    bonusCharge: Number(result[5]),
   };
 }
 
-async function refundGeminiRequest(email: string, source: number) {
+async function refundGeminiRequest(email: string, dailyCharge: number, bonusCharge: number) {
   await redisEval<number>(
     REFUND_SCRIPT,
     [userUsageKey(email), `pf:bonuscredits:${email}`, globalUsageKey()],
-    [source]
+    [dailyCharge, bonusCharge]
   );
 }
 
@@ -279,13 +329,18 @@ function fallbackReply(prompt: string): AiResult {
     : { message: "The AI service is temporarily unavailable, so I couldn't safely plan that request. No credit was used.", actions: [], suggestions: DEFAULT_SUGGESTIONS, blocked: false };
 }
 
-async function generateWithGemini(prompt: string, history: ConversationTurn[]): Promise<AiResult | null> {
+async function generateWithGemini(prompt: string, history: ConversationTurn[], route: Exclude<AiRoute, "local">): Promise<AiResult | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
+  const model = route === "builder"
+    ? process.env.GEMINI_BUILDER_MODEL || "gemini-3.5-flash"
+    : process.env.GEMINI_QUICK_MODEL || "gemini-3.1-flash-lite";
+  const systemPrompt = route === "builder" ? BUILDER_SYSTEM_PROMPT : QUICK_SYSTEM_PROMPT;
+
   try {
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: "POST",
         headers: {
@@ -293,7 +348,7 @@ async function generateWithGemini(prompt: string, history: ConversationTurn[]): 
           "x-goog-api-key": apiKey,
         },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [
             ...history.map((turn) => ({
               role: turn.role === "assistant" ? "model" : "user",
@@ -302,8 +357,8 @@ async function generateWithGemini(prompt: string, history: ConversationTurn[]): 
             { role: "user", parts: [{ text: prompt }] },
           ],
           generationConfig: {
-            temperature: 0.35,
-            maxOutputTokens: 1800,
+            temperature: route === "builder" ? 0.2 : 0.35,
+            maxOutputTokens: route === "builder" ? 4200 : 1800,
             responseMimeType: "application/json",
           },
         }),
@@ -311,7 +366,7 @@ async function generateWithGemini(prompt: string, history: ConversationTurn[]): 
     );
 
     if (!response.ok) {
-      console.error("Gemini API error", response.status, await response.text());
+      console.error(`Gemini ${route} API error`, response.status, await response.text());
       return null;
     }
 
@@ -332,10 +387,10 @@ async function generateWithGemini(prompt: string, history: ConversationTurn[]): 
           typeof action.type === "string" &&
           typeof action.description === "string"
       )
-      .slice(0, 14)
+      .slice(0, route === "builder" ? 16 : 7)
       .map((action: BuildAction) => ({
         type: action.type.slice(0, 30),
-        description: action.description.slice(0, 240),
+        description: action.description.slice(0, route === "builder" ? 420 : 240),
       }));
 
     return {
@@ -357,7 +412,8 @@ function makeResponse(
   result: AiResult,
   used: number,
   limit: number,
-  creditsCharged: number
+  creditsCharged: number,
+  mode: AiRoute
 ): GenerateResponse {
   return {
     id: `bld_${Date.now()}`,
@@ -369,6 +425,8 @@ function makeResponse(
     creditsUsed: used,
     creditsLimit: limit,
     creditsCharged,
+    mode,
+    modeLabel: routeLabel(mode),
   };
 }
 
@@ -395,6 +453,9 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
+  const requestedMode: AiModeSelection = body?.mode === "quick" || body?.mode === "builder"
+    ? body.mode
+    : "auto";
   const history: ConversationTurn[] = Array.isArray(body?.history)
     ? body.history
         .filter(
@@ -422,10 +483,12 @@ export async function POST(request: Request) {
     const { used, limit } = await getCreditState(email);
     const localResult = localConversationReply(prompt);
     if (localResult) {
-      return NextResponse.json(makeResponse(prompt, localResult, used, limit, 0));
+      return NextResponse.json(makeResponse(prompt, localResult, used, limit, 0, "local"));
     }
 
-    const reservation = await reserveGeminiRequest(email);
+    const route = routeAiPrompt(prompt, requestedMode);
+    const generationCost = generationCostForRoute(route);
+    const reservation = await reserveGeminiRequest(email, generationCost);
     if (reservation.code === -1) {
       return NextResponse.json(
         { error: "OUT_OF_CREDITS", creditsUsed: used, creditsLimit: limit },
@@ -439,10 +502,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await generateWithGemini(prompt, history);
+    const result = await generateWithGemini(prompt, history, route);
     if (!result) {
-      await refundGeminiRequest(email, reservation.source);
-      return NextResponse.json(makeResponse(prompt, fallbackReply(prompt), used, limit, 0));
+      await refundGeminiRequest(email, reservation.dailyCharge, reservation.bonusCharge);
+      return NextResponse.json(makeResponse(prompt, fallbackReply(prompt), used, limit, 0, "local"));
     }
 
     return NextResponse.json(
@@ -451,7 +514,8 @@ export async function POST(request: Request) {
         result,
         reservation.userUsed,
         BASE_DAILY_LIMIT + reservation.bonusCredits,
-        1
+        generationCost,
+        route
       )
     );
   } catch (error) {
