@@ -11,13 +11,14 @@ interface LogoProps {
   height?: number;
   priority?: boolean;
   className?: string;
+  themeAware?: boolean;
 }
 
 /**
  * Renders the visible Pathfinder mark without the large white padding that is
  * baked into logo-full.png. `height` always refers to the visible logo height.
  */
-export function Logo({ height = 36, priority = false, className = "" }: LogoProps) {
+export function Logo({ height = 36, priority = false, className = "", themeAware = false }: LogoProps) {
   const renderedImageHeight = height / CONTENT_HEIGHT_RATIO;
   const renderedImageWidth = renderedImageHeight * (SOURCE_WIDTH / SOURCE_HEIGHT);
   const visibleWidth = renderedImageWidth * CONTENT_WIDTH_RATIO;
@@ -35,6 +36,7 @@ export function Logo({ height = 36, priority = false, className = "" }: LogoProp
         height={SOURCE_HEIGHT}
         priority={priority}
         sizes={`${Math.ceil(visibleWidth)}px`}
+        className={themeAware ? "dark:hidden" : undefined}
         style={{
           position: "absolute",
           height: renderedImageHeight,
@@ -44,7 +46,17 @@ export function Logo({ height = 36, priority = false, className = "" }: LogoProp
           top: -(CONTENT_TOP_RATIO * renderedImageHeight),
         }}
       />
+      {themeAware && (
+        <Image
+          src="/logot.png"
+          alt=""
+          fill
+          priority={priority}
+          unoptimized
+          sizes={`${Math.ceil(visibleWidth)}px`}
+          className="hidden object-contain dark:block"
+        />
+      )}
     </span>
   );
 }
-

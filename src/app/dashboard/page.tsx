@@ -45,14 +45,14 @@ function TypingDots() {
 function StatusBadge({ status }: { status: BadgeStatus }) {
   if (status === "pending") {
     return (
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="theme-keep-white flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
         <span className="text-[11px] font-bold leading-none" style={{ color: "#f59e0b" }}>!</span>
       </motion.div>
     );
   }
   if (status === "blocked") {
     return (
-      <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+      <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} className="theme-keep-white flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
         <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" className="h-3 w-3">
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
@@ -237,7 +237,7 @@ export default function DashboardPage() {
       <AnimatePresence>
         {!activeProject && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4 flex items-center gap-2.5 overflow-hidden rounded-lg px-4 py-2.5 text-sm font-medium text-white" style={{ backgroundColor: "#f59e0b" }}>
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+            <span className="theme-keep-white flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
               <span className="text-[11px] font-bold leading-none" style={{ color: "#f59e0b" }}>!</span>
             </span>
             No initiative selected. <a href="/dashboard/initiatives" className="font-semibold underline">Start or select one</a> before I can help with builds.
@@ -262,7 +262,7 @@ export default function DashboardPage() {
                   return (
                     <motion.div key={msg.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
                       <div className="flex max-w-[90%] items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium text-white" style={{ backgroundColor: "#f59e0b" }}>
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+                        <span className="theme-keep-white flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
                           <span className="text-[11px] font-bold leading-none" style={{ color: "#f59e0b" }}>!</span>
                         </span>
                         {msg.content}

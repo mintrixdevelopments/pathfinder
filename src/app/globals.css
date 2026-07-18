@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --surface: #fafafa;
@@ -85,3 +87,40 @@ body {
   background-clip: text;
   color: transparent;
 }
+
+.dark .dashboard-theme {
+  color-scheme: dark;
+  --background: #0d0e10;
+  --surface: #151619;
+  --surface-hover: #1d1f23;
+  --border: #2a2c31;
+  --border-hover: #3a3d44;
+  --foreground: #f4f4f5;
+  --muted: #8b8d94;
+  --muted-foreground: #a5a7ae;
+  --accent: #292b30;
+  --accent-hover: #373a40;
+}
+
+.dark .dashboard-theme .bg-white { background-color: #151619 !important; }
+.dark .dashboard-theme .theme-keep-white { background-color: #ffffff !important; }
+.dark .dashboard-theme .bg-neutral-50 { background-color: #18191d !important; }
+.dark .dashboard-theme .bg-neutral-100 { background-color: #22242a !important; }
+.dark .dashboard-theme .bg-neutral-900 { background-color: #292b30 !important; }
+.dark .dashboard-theme .hover\:bg-neutral-50:hover,
+.dark .dashboard-theme .hover\:bg-neutral-100:hover { background-color: #22242a !important; }
+.dark .dashboard-theme .hover\:bg-neutral-700:hover,
+.dark .dashboard-theme .hover\:bg-neutral-800:hover { background-color: #373a40 !important; }
+.dark .dashboard-theme .text-neutral-950,
+.dark .dashboard-theme .text-neutral-900 { color: #f4f4f5 !important; }
+.dark .dashboard-theme .text-neutral-800,
+.dark .dashboard-theme .text-neutral-700 { color: #dedfe3 !important; }
+.dark .dashboard-theme .text-neutral-600,
+.dark .dashboard-theme .text-neutral-500 { color: #a5a7ae !important; }
+.dark .dashboard-theme .text-neutral-400,
+.dark .dashboard-theme .text-neutral-300 { color: #777a82 !important; }
+.dark .dashboard-theme .border-neutral-100,
+.dark .dashboard-theme .border-neutral-200,
+.dark .dashboard-theme .border-neutral-300 { border-color: #2a2c31 !important; }
+.dark .dashboard-theme .focus-within\:ring-neutral-100:focus-within { --tw-ring-color: #24262b !important; }
+.dark .dashboard-theme .shadow-black\/10 { --tw-shadow-color: rgb(0 0 0 / 0.35) !important; }

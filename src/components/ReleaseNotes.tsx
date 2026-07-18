@@ -124,7 +124,7 @@ export function ReleaseNotes() {
   }, [open]);
 
   return (
-    <>
+    <div className="dashboard-theme contents">
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -259,6 +259,6 @@ export function ReleaseNotes() {
           </section>
         </div>
       )}
-    </>
+    </div>
   );
 }
