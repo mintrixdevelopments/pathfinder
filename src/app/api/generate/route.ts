@@ -21,6 +21,11 @@ interface AiResult {
   blocked: boolean;
 }
 
+interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface GenerateResponse {
   id: string;
   prompt: string;
@@ -40,7 +45,14 @@ const DEFAULT_SUGGESTIONS = [
   "Add a leaderboard tracking player wins",
 ];
 
-const SYSTEM_PROMPT = `You are Pathfinder, an AI Roblox development planner.
+const SYSTEM_PROMPT = `You are Pathfinder, an AI Roblox developer and planning platform created by Mintrix Developments.
+
+Pathfinder product facts:
+- Pathfinder is created and operated by Mintrix Developments, an independent two-person development team.
+- Pathfinder turns plain-language Roblox ideas into structured build plans and is being developed toward direct Roblox Studio execution.
+- You are Pathfinder. Never say that Google created, trained, or owns Pathfinder.
+- Gemini 3.1 Flash Lite is the underlying AI model used for complex planning, but Pathfinder is the product and identity.
+- Speak confidently as Pathfinder and retain relevant context from the supplied conversation history.
 
 Classify the request as BUILD, UNCLEAR, or BLOCKED.
 
@@ -98,6 +110,51 @@ function localConversationReply(prompt: string): AiResult | null {
   if (/^(who are you|what are you|what can you do|help|help me)$/.test(clean)) {
     return {
       message: "I'm Pathfinder, an AI Roblox development planner. Describe a system, feature, or game and I'll break it into build actions.",
+      actions: [],
+      suggestions: DEFAULT_SUGGESTIONS,
+      blocked: false,
+    };
+  }
+
+  if (/(who (made|created|built|developed|owns?) (you|pathfinder)|who('?s| is) behind pathfinder|who are your creators?)/.test(clean)) {
+    return {
+      message: "Pathfinder was created by Mintrix Developments, an independent two-person development team building AI tools for Roblox developers.",
+      actions: [],
+      suggestions: ["What is Pathfinder building toward?", "Plan my first Roblox system"],
+      blocked: false,
+    };
+  }
+
+  if (/(who|what) (is|are) mintrix( developments)?|tell me about mintrix/.test(clean)) {
+    return {
+      message: "Mintrix Developments is the independent two-person team that created and operates Pathfinder. The team is building Pathfinder into an AI Roblox developer that can understand projects, plan changes, and eventually execute them in Roblox Studio.",
+      actions: [],
+      suggestions: ["Who created Pathfinder?", "What can Pathfinder do today?"],
+      blocked: false,
+    };
+  }
+
+  if (/(what model|which model|are you gemini|are you google|did google (make|create|train) you)/.test(clean)) {
+    return {
+      message: "I’m Pathfinder, created by Mintrix Developments. I use Gemini 3.1 Flash Lite as the underlying model for complex planning, but Pathfinder’s product, systems, and identity are built by Mintrix Developments.",
+      actions: [],
+      suggestions: [],
+      blocked: false,
+    };
+  }
+
+  if (/(what is pathfinder|tell me about pathfinder|what('?s| is) pathfinder('?s)? (purpose|goal|mission)|what can pathfinder do today)/.test(clean)) {
+    return {
+      message: "Pathfinder is an AI-powered Roblox development platform by Mintrix Developments. Today I turn ideas into structured build plans; the long-term goal is to understand existing games and execute changes directly inside Roblox Studio.",
+      actions: [],
+      suggestions: DEFAULT_SUGGESTIONS,
+      blocked: false,
+    };
+  }
+
+  if (/^(how are you|how('?s| is) it going|what('?s| is) up|wassup|nice|cool|awesome|great|okay|ok|alright|yes|yeah|yep|no|nope)$/.test(clean)) {
+    return {
+      message: "I’m ready. Tell me what you want to create or improve in your Roblox initiative.",
       actions: [],
       suggestions: DEFAULT_SUGGESTIONS,
       blocked: false,
@@ -222,7 +279,7 @@ function fallbackReply(prompt: string): AiResult {
     : { message: "The AI service is temporarily unavailable, so I couldn't safely plan that request. No credit was used.", actions: [], suggestions: DEFAULT_SUGGESTIONS, blocked: false };
 }
 
-async function generateWithGemini(prompt: string): Promise<AiResult | null> {
+async function generateWithGemini(prompt: string, history: ConversationTurn[]): Promise<AiResult | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
@@ -237,7 +294,13 @@ async function generateWithGemini(prompt: string): Promise<AiResult | null> {
         },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          contents: [
+            ...history.map((turn) => ({
+              role: turn.role === "assistant" ? "model" : "user",
+              parts: [{ text: turn.content }],
+            })),
+            { role: "user", parts: [{ text: prompt }] },
+          ],
           generationConfig: {
             temperature: 0.35,
             maxOutputTokens: 1800,
@@ -332,6 +395,20 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
+  const history: ConversationTurn[] = Array.isArray(body?.history)
+    ? body.history
+        .filter(
+          (turn: unknown): turn is ConversationTurn =>
+            typeof turn === "object" &&
+            turn !== null &&
+            "role" in turn &&
+            "content" in turn &&
+            (turn.role === "user" || turn.role === "assistant") &&
+            typeof turn.content === "string"
+        )
+        .slice(-8)
+        .map((turn: ConversationTurn) => ({ role: turn.role, content: turn.content.slice(0, 600) }))
+    : [];
   if (!prompt) {
     return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
   }
@@ -362,7 +439,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await generateWithGemini(prompt);
+    const result = await generateWithGemini(prompt, history);
     if (!result) {
       await refundGeminiRequest(email, reservation.source);
       return NextResponse.json(makeResponse(prompt, fallbackReply(prompt), used, limit, 0));

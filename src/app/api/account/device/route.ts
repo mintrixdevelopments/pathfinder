@@ -33,11 +33,14 @@ export async function POST(request: Request) {
   const country = request.headers.get("x-vercel-ip-country") || "Unknown country";
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "Unavailable";
   const userAgent = request.headers.get("user-agent") || "Unknown browser";
+  const provider = (session as typeof session & { pathfinderProvider?: string }).pathfinderProvider;
+  const signInType = provider === "google" ? "Google OAuth" : provider === "credentials" ? "Email and password" : "Pathfinder account";
 
   try {
     await sendNewDeviceEmail({
       to: email,
       name: user?.name || session.user.name || "there",
+      signInType,
       device: readableDevice(userAgent),
       location: `${city}, ${country}`,
       ip,

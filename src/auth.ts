@@ -45,5 +45,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
+    async jwt({ token, account }) {
+      if (account?.provider) token.pathfinderProvider = account.provider;
+      return token;
+    },
+    async session({ session, token }) {
+      (session as typeof session & { pathfinderProvider?: string }).pathfinderProvider =
+        typeof token.pathfinderProvider === "string" ? token.pathfinderProvider : undefined;
+      return session;
+    },
   },
 });

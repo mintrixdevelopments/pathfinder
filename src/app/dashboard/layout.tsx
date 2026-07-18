@@ -13,7 +13,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <BuildsProvider>
+    <BuildsProvider userKey={session.user.email || session.user.name || "pathfinder-user"}>
       <ReleaseNotes />
       <ReferralRedeemer />
       <SecuritySessionRegistrar />

@@ -156,7 +156,13 @@ export default function DashboardPage() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({
+          prompt: text,
+          history: messages
+            .filter((message) => message.role !== "system" && message.content)
+            .slice(-8)
+            .map((message) => ({ role: message.role, content: message.content.slice(0, 600) })),
+        }),
       });
 
       if (res.status === 429) {
