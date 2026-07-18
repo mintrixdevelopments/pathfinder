@@ -52,9 +52,8 @@ export function Logo({ height = 36, priority = false, className = "", themeAware
           alt=""
           fill
           priority={priority}
-          unoptimized
           sizes={`${Math.ceil(visibleWidth)}px`}
-          className="hidden scale-[1.16] object-contain dark:block"
+          className="hidden object-contain dark:block"
         />
       )}
     </span>
