@@ -4,8 +4,24 @@ import { useEffect, useState } from "react";
 
 const releases = [
   {
-    version: "0.3.5",
+    version: "0.4.0-alpha.1",
     label: "Current",
+    date: "20 July 2026",
+    author: "Mintrium Developments",
+    title: "Studio connection",
+    description:
+      "The first Phase 3 release introduces Pathfinder for Roblox Studio and secure account pairing.",
+    changes: [
+      "Added the Pathfinder Roblox Studio plugin foundation",
+      "Added secure one-time website-to-Studio connection codes",
+      "Added a dedicated Studio connection page in the dashboard",
+      "Added persistent, revocable plugin sessions for connected installations",
+      "Simplified password-change notifications into concise security receipts",
+    ],
+  },
+  {
+    version: "0.3.5",
+    label: "Brand",
     date: "19 July 2026",
     author: "Mintrium Developments",
     title: "Mintrium identity",

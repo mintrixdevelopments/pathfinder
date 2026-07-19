@@ -198,10 +198,7 @@ export async function sendPasswordChangedEmail(input: { to: string; name: string
     html: emailLayout({
       title: "Password changed",
       preview: "Your Pathfinder password was changed.",
-      content: `<p style="margin:0">Hi ${name},</p><p style="margin:16px 0 0">Your Pathfinder password was changed successfully. Existing sessions have been signed out and will need to authenticate again.</p>`,
-      primaryAction: "Sign in to Pathfinder",
-      primaryActionUrl: `${APP_URL}/sign-in`,
-      secondary: `<h2 style="margin:0;color:#17171c;font-family:${FONT_STACK};font-size:21px;font-weight:700;letter-spacing:-0.2px;line-height:28px">Don&#39;t recognize this change?</h2><p style="margin:12px 0 0;color:#666671;font-family:${FONT_STACK};font-size:15px;font-weight:400;line-height:24px">Reset your password immediately and review the devices connected to your account.</p><div style="padding-top:22px">${button("Reset password", `${APP_URL}/forgot-password`)}</div>`,
+      content: `<p style="margin:0">Hi ${name},</p><p style="margin:16px 0 0">Your Pathfinder password was changed successfully. All existing sessions were signed out.</p><p style="margin:20px 0 0;font-size:14px;line-height:23px">If you didn&#39;t make this change, <a href="${APP_URL}/forgot-password" style="color:#303038;font-weight:600;text-decoration:underline">reset your password immediately</a>.</p>`,
       reason: "This security notification was sent because the password on your Pathfinder account changed.",
     }),
     text: `Your Pathfinder password was changed and existing sessions were signed out.\n\nIf you did not make this change, reset it immediately: ${APP_URL}/forgot-password`,
