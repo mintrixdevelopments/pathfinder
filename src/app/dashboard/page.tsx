@@ -21,7 +21,7 @@ interface ChatMessage {
   badgeStatus?: BadgeStatus;
   modeLabel?: string;
   creditsCharged?: number;
-  developerMode?: boolean;
+  internalMode?: boolean;
 }
 
 interface CreditState {
@@ -32,7 +32,7 @@ interface CreditState {
   bonusCredits: number;
   remaining: number;
   resetAt: string;
-  developerMode: boolean;
+  internalMode: boolean;
 }
 
 const STARTER_SUGGESTIONS = [
@@ -192,7 +192,7 @@ export default function DashboardPage() {
       const data: {
         id: string; prompt: string; message: string; actions: BuildAction[]; suggestions: string[];
         status: "planned" | "chat" | "blocked"; creditsUsed: number; creditsLimit: number;
-        creditsCharged: number; modeLabel: string; developerMode: boolean;
+        creditsCharged: number; modeLabel: string; internalMode: boolean;
       } = await res.json();
 
       setCreditsUsed(data.creditsUsed);
@@ -210,7 +210,7 @@ export default function DashboardPage() {
                 badgeStatus: data.status === "blocked" ? "blocked" : "success",
                 modeLabel: data.modeLabel,
                 creditsCharged: data.creditsCharged,
-                developerMode: data.developerMode,
+                internalMode: data.internalMode,
               }
             : m
         )
@@ -237,22 +237,22 @@ export default function DashboardPage() {
     }
   }
 
-  const developerMode = creditState?.developerMode === true;
+  const internalMode = creditState?.internalMode === true;
   const creditsRemaining = creditState?.remaining ?? (creditsLimit !== null && creditsUsed !== null ? Math.max(0, creditsLimit - creditsUsed) : null);
   const previewRoute = previewAiRoute(prompt, mode);
   const previewCost = generationCostForRoute(previewRoute);
-  const previewLabel = developerMode
-    ? `${routeLabel(previewRoute).replace("Pathfinder ", "")} · Developer`
+  const previewLabel = internalMode
+    ? `${routeLabel(previewRoute).replace("Pathfinder ", "")} · Internal`
     : prompt.trim()
     ? `${routeLabel(previewRoute).replace("Pathfinder ", "")} · ${previewCost === 0 ? "No generation" : `${previewCost} generation${previewCost === 1 ? "" : "s"}`}`
     : mode === "auto"
       ? "Smart routing"
       : `${mode === "builder" ? "Builder" : "Quick"} · ${mode === "builder" ? "2 generations" : "1 generation"}`;
   const creditTheme =
-    developerMode ? "border-violet-200 bg-violet-50 text-violet-700"
+    internalMode ? "border-violet-200 bg-violet-50 text-violet-700"
     : creditsRemaining === null ? "border-border bg-surface text-muted-foreground"
     : creditsRemaining <= 0 ? "text-white" : creditsRemaining <= 3 ? "text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700";
-  const creditBg = developerMode || creditsRemaining === null ? undefined : creditsRemaining <= 0 ? "#ef4444" : creditsRemaining <= 3 ? "#f59e0b" : undefined;
+  const creditBg = internalMode || creditsRemaining === null ? undefined : creditsRemaining <= 0 ? "#ef4444" : creditsRemaining <= 3 ? "#f59e0b" : undefined;
 
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col px-6 py-6">
@@ -341,7 +341,7 @@ export default function DashboardPage() {
                         <div className="mt-3 flex items-center gap-1.5 border-t border-border pt-2.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
                           <span>{msg.modeLabel.replace("Pathfinder ", "")}</span>
                           <span>·</span>
-                          <span>{msg.developerMode ? "Developer" : msg.creditsCharged === 0 ? (msg.modeLabel === "Pathfinder Local" ? "Local" : "Refunded") : `${msg.creditsCharged} generation${msg.creditsCharged === 1 ? "" : "s"}`}</span>
+                          <span>{msg.internalMode ? "Internal" : msg.creditsCharged === 0 ? (msg.modeLabel === "Pathfinder Local" ? "Local" : "Refunded") : `${msg.creditsCharged} generation${msg.creditsCharged === 1 ? "" : "s"}`}</span>
                         </div>
                       )}
                     </div>
@@ -378,12 +378,12 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <div className="hidden text-right sm:block">
               <p className="text-[11px] font-medium text-neutral-600">
-                {developerMode ? "Developer access active" : creditState ? `${Math.max(0, creditState.dailyAllowance - creditState.dailyUsed)} daily · ${creditState.bonusCredits} bonus` : "Loading allowance…"}
+                {internalMode ? "Internal access active" : creditState ? `${Math.max(0, creditState.dailyAllowance - creditState.dailyUsed)} daily · ${creditState.bonusCredits} bonus` : "Loading allowance…"}
               </p>
-              <p className="text-[10px] text-neutral-400">{developerMode ? "Testing balance bypass enabled" : "Quick uses 1 · Builder uses 2"}</p>
+              <p className="text-[10px] text-neutral-400">{internalMode ? "Internal testing active" : "Quick uses 1 · Builder uses 2"}</p>
             </div>
             <span title="Greetings and basic help are handled locally without using Gemini." className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${creditTheme}`} style={creditBg ? { backgroundColor: creditBg, borderColor: creditBg } : undefined}>
-              {developerMode ? "Unlimited" : creditsRemaining !== null ? `${Math.round(creditsRemaining)} generations left` : "…"}
+              {internalMode ? "Unlimited" : creditsRemaining !== null ? `${Math.round(creditsRemaining)} generations left` : "…"}
             </span>
             <motion.button whileTap={{ scale: 0.96 }} onClick={() => sendPrompt(prompt)} disabled={!prompt.trim() || isGenerating} className="flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
               {isGenerating ? "Thinking…" : "Send"}

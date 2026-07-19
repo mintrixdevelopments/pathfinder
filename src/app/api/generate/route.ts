@@ -8,7 +8,7 @@ import {
   type AiModeSelection,
   type AiRoute,
 } from "../../../lib/ai-routing";
-import { hasDeveloperAccess } from "../../../lib/developer-access";
+import { hasInternalAccess } from "../../../lib/internal-access";
 
 const BASE_DAILY_LIMIT = 15;
 const GLOBAL_DAILY_LIMIT = Math.max(
@@ -46,7 +46,7 @@ interface GenerateResponse {
   creditsCharged: number;
   mode: AiRoute;
   modeLabel: string;
-  developerMode: boolean;
+  internalMode: boolean;
 }
 
 const DEFAULT_SUGGESTIONS = [
@@ -417,7 +417,7 @@ function makeResponse(
   limit: number,
   creditsCharged: number,
   mode: AiRoute,
-  developerMode = false
+  internalMode = false
 ): GenerateResponse {
   return {
     id: `bld_${Date.now()}`,
@@ -431,7 +431,7 @@ function makeResponse(
     creditsCharged,
     mode,
     modeLabel: routeLabel(mode),
-    developerMode,
+    internalMode,
   };
 }
 
@@ -443,11 +443,11 @@ export async function GET() {
 
   try {
     const email = session.user.email.toLowerCase();
-    const [state, developerMode] = await Promise.all([
+    const [state, internalMode] = await Promise.all([
       getCreditState(email),
-      hasDeveloperAccess(email).catch(() => false),
+      hasInternalAccess(email).catch(() => false),
     ]);
-    return NextResponse.json({ ...state, developerMode });
+    return NextResponse.json({ ...state, internalMode });
   } catch (error) {
     console.error("Credit state failed", error);
     return NextResponse.json({ error: "Usage service unavailable" }, { status: 503 });
@@ -489,18 +489,18 @@ export async function POST(request: Request) {
   const email = session.user.email.toLowerCase();
 
   try {
-    const [{ used, limit }, developerMode] = await Promise.all([
+    const [{ used, limit }, internalMode] = await Promise.all([
       getCreditState(email),
-      hasDeveloperAccess(email).catch(() => false),
+      hasInternalAccess(email).catch(() => false),
     ]);
     const localResult = localConversationReply(prompt);
     if (localResult) {
-      return NextResponse.json(makeResponse(prompt, localResult, used, limit, 0, "local", developerMode));
+      return NextResponse.json(makeResponse(prompt, localResult, used, limit, 0, "local", internalMode));
     }
 
     const route = routeAiPrompt(prompt, requestedMode);
     const generationCost = generationCostForRoute(route);
-    const reservation = developerMode ? null : await reserveGeminiRequest(email, generationCost);
+    const reservation = internalMode ? null : await reserveGeminiRequest(email, generationCost);
     if (reservation?.code === -1) {
       return NextResponse.json(
         { error: "OUT_OF_CREDITS", creditsUsed: used, creditsLimit: limit },
@@ -519,14 +519,14 @@ export async function POST(request: Request) {
       if (reservation) {
         await refundGeminiRequest(email, reservation.dailyCharge, reservation.bonusCharge);
       }
-      return NextResponse.json(makeResponse(prompt, fallbackReply(prompt), used, limit, 0, "local", developerMode));
+      return NextResponse.json(makeResponse(prompt, fallbackReply(prompt), used, limit, 0, "local", internalMode));
     }
 
     if (result.blocked) {
       if (reservation) {
         await refundGeminiRequest(email, reservation.dailyCharge, reservation.bonusCharge);
       }
-      return NextResponse.json(makeResponse(prompt, result, used, limit, 0, route, developerMode));
+      return NextResponse.json(makeResponse(prompt, result, used, limit, 0, route, internalMode));
     }
 
     return NextResponse.json(
@@ -535,9 +535,9 @@ export async function POST(request: Request) {
         result,
         reservation?.userUsed ?? used,
         reservation ? BASE_DAILY_LIMIT + reservation.bonusCredits : limit,
-        developerMode ? 0 : generationCost,
+        internalMode ? 0 : generationCost,
         route,
-        developerMode
+        internalMode
       )
     );
   } catch (error) {

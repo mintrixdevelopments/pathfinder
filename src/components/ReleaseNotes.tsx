@@ -4,19 +4,32 @@ import { useEffect, useState } from "react";
 
 const releases = [
   {
-    version: "0.3.2",
+    version: "0.3.3",
     label: "Current",
     date: "19 July 2026",
     author: "Mintrix Developments",
-    title: "Reliable testing",
+    title: "Account communication",
     description:
-      "A focused reliability update making AI usage fairer and giving Mintrix a secure testing mode.",
+      "A focused account experience update improving Pathfinder emails, usage accuracy, and failed-request handling.",
+    changes: [
+      "Rebuilt account emails with cleaner typography and consistent Pathfinder branding",
+      "Removed development labels from transactional email subjects",
+      "Refunded generations automatically when a request is blocked or fails",
+      "Improved failed-response presentation and removed irrelevant suggestions",
+    ],
+  },
+  {
+    version: "0.3.2",
+    label: "Usage",
+    date: "19 July 2026",
+    author: "Mintrix Developments",
+    title: "Reliable usage",
+    description:
+      "A focused reliability update making Pathfinder AI usage clearer and fairer.",
     changes: [
       "Refunded generations automatically when a request is blocked or fails",
       "Improved failed-response presentation and removed irrelevant suggestions",
-      "Added secure developer-code activation in account settings",
-      "Added unlimited Pathfinder generation access for approved testing accounts",
-      "Kept developer credentials server-side with attempt rate limiting",
+      "Improved generation balance feedback throughout the dashboard",
     ],
   },
   {

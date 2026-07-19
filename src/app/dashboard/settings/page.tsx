@@ -5,8 +5,8 @@ import { SignOutButton } from "./sign-out-button";
 import { SignOutAllButton } from "./sign-out-all-button";
 import { redisLRange } from "../../../lib/redis";
 import { EmailTestButton } from "./email-test-button";
-import { DeveloperAccess } from "./developer-access";
-import { developerAccessConfigured, hasDeveloperAccess } from "../../../lib/developer-access";
+import { InternalAccess } from "./internal-access";
+import { hasInternalAccess, internalAccessConfigured } from "../../../lib/internal-access";
 
 interface SecurityEvent {
   id: string;
@@ -31,8 +31,8 @@ export default async function SettingsPage() {
         .map((item) => { try { return JSON.parse(item) as SecurityEvent; } catch { return null; } })
         .filter((item): item is SecurityEvent => Boolean(item?.id && item?.createdAt))
     : [];
-  const developerActive = sessionUser?.email
-    ? await hasDeveloperAccess(sessionUser.email).catch(() => false)
+  const internalActive = sessionUser?.email
+    ? await hasInternalAccess(sessionUser.email).catch(() => false)
     : false;
 
   return (
@@ -53,7 +53,7 @@ export default async function SettingsPage() {
         </dl>
       </section>
 
-      <DeveloperAccess active={developerActive} configured={developerAccessConfigured()} />
+      <InternalAccess active={internalActive} configured={internalAccessConfigured()} />
 
       <section className="rounded-xl border border-border bg-surface p-5">
         <h2 className="text-sm font-medium">Sign-in methods</h2>
