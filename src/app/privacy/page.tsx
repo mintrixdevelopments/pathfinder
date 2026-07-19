@@ -9,7 +9,7 @@ export default function PrivacyPage() {
 
       <div className="mt-8 flex flex-col gap-7 text-sm leading-relaxed text-neutral-700">
         <p>
-          Pathfinder is built and operated by Mintrix Developments ("we," "our," "us").
+          Pathfinder is built and operated by Mintrium Developments ("we," "our," "us").
           This policy explains, in plain language, what information Pathfinder collects,
           why, and how you can control it. Pathfinder is currently in early alpha, so
           this policy will keep evolving alongside the product — check back as we grow.

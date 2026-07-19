@@ -8,7 +8,7 @@ export default function TermsPage() {
       <p className="mt-2 text-sm text-neutral-500">Last updated {new Date().toLocaleDateString()}</p>
 
       <div className="mt-8 flex flex-col gap-7 text-sm leading-relaxed text-neutral-700">
-        <p>By creating an account or using Pathfinder, you agree to these terms. Pathfinder is built and operated by Mintrix Developments.</p>
+        <p>By creating an account or using Pathfinder, you agree to these terms. Pathfinder is built and operated by Mintrium Developments.</p>
 
         <div>
           <h2 className="text-base font-semibold text-neutral-900">1. Early access / alpha status</h2>

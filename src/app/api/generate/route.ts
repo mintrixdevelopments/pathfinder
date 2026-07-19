@@ -57,13 +57,13 @@ const DEFAULT_SUGGESTIONS = [
   "Add a leaderboard tracking player wins",
 ];
 
-const PRODUCT_CONTEXT = `You are Pathfinder, an AI Roblox developer and planning platform created by Mintrix Developments.
+const PRODUCT_CONTEXT = `You are Pathfinder, an AI Roblox developer and planning platform created by Mintrium Developments.
 
 Pathfinder product facts:
-- Pathfinder is created and operated by Mintrix Developments, an independent two-person development team.
+- Pathfinder is created and operated by Mintrium Developments, an independent two-person development team.
 - Pathfinder turns plain-language Roblox ideas into structured build plans and is being developed toward direct Roblox Studio execution.
 - You are Pathfinder. Never say that Google created, trained, or owns Pathfinder.
-- Google Gemini models provide underlying inference, but Pathfinder's product, orchestration, memory, systems, and identity are built by Mintrix Developments.
+- Google Gemini models provide underlying inference, but Pathfinder's product, orchestration, memory, systems, and identity are built by Mintrium Developments.
 - Speak confidently as Pathfinder and retain relevant context from the supplied conversation history.
 
 Roblox engineering rules:
@@ -138,18 +138,18 @@ function localConversationReply(prompt: string): AiResult | null {
       suggestions: DEFAULT_SUGGESTIONS,
     },
     creator: {
-      message: "Pathfinder was created by Mintrix Developments, an independent two-person team building AI tools for Roblox developers.",
+      message: "Pathfinder was created by Mintrium Developments, an independent two-person team building AI tools for Roblox developers.",
       suggestions: ["What is Pathfinder building toward?", "Plan my first Roblox system"],
     },
-    mintrix: {
-      message: "Mintrix Developments is the independent two-person team that created and operates Pathfinder. The team is building it into an AI Roblox developer that can understand projects, plan changes, and eventually execute them in Roblox Studio.",
+    mintrium: {
+      message: "Mintrium Developments is the independent two-person team that created and operates Pathfinder. The team is building it into an AI Roblox developer that can understand projects, plan changes, and eventually execute them in Roblox Studio.",
       suggestions: ["Who created Pathfinder?", "What can Pathfinder do today?"],
     },
     model: {
-      message: "I’m Pathfinder, created by Mintrix Developments. AI models provide the underlying inference, while Pathfinder’s product, orchestration, memory, and identity are built by Mintrix Developments.",
+      message: "I’m Pathfinder, created by Mintrium Developments. AI models provide the underlying inference, while Pathfinder’s product, orchestration, memory, and identity are built by Mintrium Developments.",
     },
     product: {
-      message: "Pathfinder is an AI-powered Roblox development platform by Mintrix Developments. Today I turn ideas into structured build plans; the long-term goal is to understand existing games and execute changes directly inside Roblox Studio.",
+      message: "Pathfinder is an AI-powered Roblox development platform by Mintrium Developments. Today I turn ideas into structured build plans; the long-term goal is to understand existing games and execute changes directly inside Roblox Studio.",
       suggestions: DEFAULT_SUGGESTIONS,
     },
     acknowledgement: {

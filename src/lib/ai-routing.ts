@@ -6,7 +6,7 @@ export type LocalConversationKind =
   | "goodbye"
   | "identity"
   | "creator"
-  | "mintrix"
+  | "mintrium"
   | "model"
   | "product"
   | "acknowledgement"
@@ -23,7 +23,7 @@ const THANKS = /^(?:thanks|thank you|thankyou|ty|cheers)(?:\s+(?:pathfinder|so m
 const GOODBYE = /^(?:bye|goodbye|see you|see ya|cya|later|talk to you later|gotta go|have a good (?:day|night))$/i;
 const IDENTITY = /^(?:who are you|what are you|what can you do|how can you help(?: me)?|help|help me|what should i ask(?: you)?)$/i;
 const CREATOR = /who (?:made|created|built|developed|owns?) (?:you|pathfinder)|who(?:'s| is) behind pathfinder|who are your creators?/i;
-const MINTRIX = /(?:who|what) (?:is|are) mintrix(?: developments)?|tell me about mintrix/i;
+const MINTRIUM = /(?:who|what) (?:is|are) (?:mintrium|mintrix)(?: developments)?|tell me about (?:mintrium|mintrix)/i;
 const MODEL = /what model|which model|are you gemini|are you google|did google (?:make|create|train) you|what ai (?:are you|do you use)/i;
 const PRODUCT = /what is pathfinder|tell me about pathfinder|what(?:'s| is) pathfinder(?:'s)? (?:purpose|goal|mission)|what can pathfinder do today|is pathfinder (?:free|finished|available)/i;
 const ACKNOWLEDGEMENT = /^(?:nice|cool|awesome|great|perfect|okay|ok|alright|yes|yeah|yep|sure|sounds good|got it|understood|makes sense|no|nope)(?:\s+(?:thanks|then|pathfinder))?$/i;
@@ -42,7 +42,7 @@ export function localConversationKind(prompt: string): LocalConversationKind | n
 
   if (!clean || clean.length > 180) return null;
   if (CREATOR.test(clean)) return "creator";
-  if (MINTRIX.test(clean)) return "mintrix";
+  if (MINTRIUM.test(clean)) return "mintrium";
   if (MODEL.test(clean)) return "model";
   if (PRODUCT.test(clean)) return "product";
   if (BUILDER_INTENT.test(clean) || QUICK_INTENT.test(clean)) return null;

@@ -22,7 +22,7 @@ const FOOTER_LINKS = {
     { label: "Features", href: "#features" },
   ],
   Company: [
-    { label: "Mintrix Developments", href: "#" },
+    { label: "Mintrium Developments", href: "#" },
     { label: "Donate", href: "/donate" },
     { label: "Contact", href: "mailto:hello@pathfinder.dev" },
   ],
@@ -162,7 +162,7 @@ export default async function Home() {
         <div className="mx-auto flex max-w-5xl flex-col gap-10 md:flex-row md:justify-between">
           <div className="flex flex-col gap-3">
             <Logo height={24} themeAware />
-            <p className="max-w-xs text-sm text-neutral-500">An AI Roblox developer, built by Mintrix Developments.</p>
+            <p className="max-w-xs text-sm text-neutral-500">An AI Roblox developer, built by Mintrium Developments.</p>
             <div className="mt-2 flex items-center gap-4">
               {SOCIALS.map((social) => (
                 <a key={social.label} href={social.href} target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-400 transition-colors hover:text-neutral-900">
@@ -185,7 +185,7 @@ export default async function Home() {
           </div>
         </div>
         <div className="mx-auto mt-10 max-w-5xl border-t border-neutral-100 pt-6 text-xs text-neutral-400">
-          © {new Date().getFullYear()} Mintrix Developments. All rights reserved.
+          © {new Date().getFullYear()} Mintrium Developments. All rights reserved.
         </div>
       </footer>
     </div>

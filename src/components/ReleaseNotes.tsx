@@ -4,10 +4,25 @@ import { useEffect, useState } from "react";
 
 const releases = [
   {
-    version: "0.3.4",
+    version: "0.3.5",
     label: "Current",
     date: "19 July 2026",
-    author: "Mintrix Developments",
+    author: "Mintrium Developments",
+    title: "Mintrium identity",
+    description:
+      "A complete brand and account communication update introducing Mintrium Developments across Pathfinder.",
+    changes: [
+      "Updated Pathfinder ownership and product identity to Mintrium Developments",
+      "Rebuilt all account emails around one consistent professional layout",
+      "Added complete email footers with company, account, privacy, and terms information",
+      "Improved action consistency, mobile sizing, and security-email clarity",
+    ],
+  },
+  {
+    version: "0.3.4",
+    label: "Conversation",
+    date: "19 July 2026",
+    author: "Mintrium Developments",
     title: "Smarter everyday conversation",
     description:
       "A usage-efficiency update making Pathfinder clearer and more predictable before every AI request.",
@@ -22,7 +37,7 @@ const releases = [
     version: "0.3.3",
     label: "Email",
     date: "19 July 2026",
-    author: "Mintrix Developments",
+    author: "Mintrium Developments",
     title: "Account communication",
     description:
       "A focused account experience update improving Pathfinder emails, usage accuracy, and failed-request handling.",
@@ -37,7 +52,7 @@ const releases = [
     version: "0.3.2",
     label: "Usage",
     date: "19 July 2026",
-    author: "Mintrix Developments",
+    author: "Mintrium Developments",
     title: "Reliable usage",
     description:
       "A focused reliability update making Pathfinder AI usage clearer and fairer.",
@@ -51,7 +66,7 @@ const releases = [
     version: "0.3.1",
     label: "Intelligence",
     date: "19 July 2026",
-    author: "Mintrix Developments",
+    author: "Mintrium Developments",
     title: "Pathfinder intelligence",
     description:
       "A major intelligence and communication update giving complex Roblox work deeper engineering while keeping everyday requests fast.",
@@ -68,7 +83,7 @@ const releases = [
     version: "0.3.0",
     label: "Accounts",
     date: "18 July 2026",
-    author: "Mintrix Developments",
+    author: "Mintrium Developments",
     title: "Pathfinder accounts",
     description:
       "A major reliability release making Pathfinder accounts, AI usage, referrals, and security clearer and more dependable.",
@@ -85,7 +100,7 @@ const releases = [
     version: "0.2.1",
     label: "Dashboard",
     date: "18 July 2026",
-    author: "Mintrix Developments",
+    author: "Mintrium Developments",
     title: "Production polish",
     description:
       "A focused update improving transparency, reliability, and the Pathfinder dashboard experience.",
@@ -100,7 +115,7 @@ const releases = [
     version: "0.2.0",
     label: "Phase 2",
     date: "July 2026",
-    author: "Mintrix Developments",
+    author: "Mintrium Developments",
     title: "AI build planning",
     description:
       "Pathfinder can understand Roblox development requests and turn them into structured build plans.",
