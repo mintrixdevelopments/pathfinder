@@ -4,7 +4,6 @@ import { getUser } from "../../../lib/accounts";
 import { SignOutButton } from "./sign-out-button";
 import { SignOutAllButton } from "./sign-out-all-button";
 import { redisLRange } from "../../../lib/redis";
-import { EmailTestButton } from "./email-test-button";
 import { InternalAccess } from "./internal-access";
 import { hasInternalAccess, internalAccessConfigured } from "../../../lib/internal-access";
 
@@ -74,7 +73,6 @@ export default async function SettingsPage() {
         <h2 className="text-sm font-medium">Sign-in alerts</h2>
         <p className="mt-1 text-xs leading-5 text-muted">Pathfinder emails you when a browser we have not seen before signs in.</p>
         <div className="mt-4 flex items-center gap-2 text-xs font-medium text-emerald-700"><span className="h-2 w-2 rounded-full bg-emerald-500" />Security notifications active</div>
-        <EmailTestButton />
       </section>
 
       <section className="rounded-xl border border-border bg-surface p-5">

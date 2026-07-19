@@ -4,8 +4,23 @@ import { useEffect, useState } from "react";
 
 const releases = [
   {
-    version: "0.3.3",
+    version: "0.3.4",
     label: "Current",
+    date: "19 July 2026",
+    author: "Mintrix Developments",
+    title: "Smarter everyday conversation",
+    description:
+      "A usage-efficiency update making Pathfinder clearer and more predictable before every AI request.",
+    changes: [
+      "Expanded no-cost local replies for greetings, thanks, acknowledgements, and product questions",
+      "Unified dashboard cost previews with server-side request classification",
+      "Prevented ordinary conversation from consuming shared AI capacity",
+      "Improved Pathfinder identity and unsupported-request responses",
+    ],
+  },
+  {
+    version: "0.3.3",
+    label: "Email",
     date: "19 July 2026",
     author: "Mintrix Developments",
     title: "Account communication",

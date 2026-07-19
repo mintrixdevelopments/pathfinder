@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { EmailTestButton } from "./email-test-button";
 
 export function InternalAccess({ active, configured }: { active: boolean; configured: boolean }) {
   const router = useRouter();
@@ -66,6 +67,7 @@ export function InternalAccess({ active, configured }: { active: boolean; config
         </div>
       )}
       {message && <p className="mt-3 text-xs text-muted">{message}</p>}
+      {enabled && <EmailTestButton />}
     </section>
   );
 }

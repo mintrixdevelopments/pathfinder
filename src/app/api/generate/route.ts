@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { redisEval, redisGet } from "../../../lib/redis";
 import {
   generationCostForRoute,
+  localConversationKind,
   routeAiPrompt,
   routeLabel,
   type AiModeSelection,
@@ -122,100 +123,60 @@ function globalUsageKey() {
 }
 
 function localConversationReply(prompt: string): AiResult | null {
-  const value = prompt.trim().toLowerCase();
-  const clean = value.replace(/[!?.,]+$/g, "").trim();
+  const kind = localConversationKind(prompt);
+  if (!kind) return null;
 
-  if (/^(hi|hello|hey|hiya|heya|yo|sup|good morning|good afternoon|good evening)$/.test(clean)) {
-    return {
-      message: "Hey — I'm Pathfinder. Tell me what you want to build in Roblox and I'll turn it into a structured plan.",
-      actions: [],
+  const replies: Record<typeof kind, { message: string; suggestions?: string[] }> = {
+    greeting: {
+      message: "Hey — I’m Pathfinder. Tell me what you want to build or improve in Roblox.",
       suggestions: DEFAULT_SUGGESTIONS,
-      blocked: false,
-    };
-  }
-
-  if (/^(thanks|thank you|thankyou|ty|cheers)$/.test(clean)) {
-    return {
-      message: "You're welcome. Send the next Roblox feature whenever you're ready.",
-      actions: [],
-      suggestions: [],
-      blocked: false,
-    };
-  }
-
-  if (/^(bye|goodbye|see you|cya|later)$/.test(clean)) {
-    return {
-      message: "See you next time. Your initiative will be here when you return.",
-      actions: [],
-      suggestions: [],
-      blocked: false,
-    };
-  }
-
-  if (/^(who are you|what are you|what can you do|help|help me)$/.test(clean)) {
-    return {
-      message: "I'm Pathfinder, an AI Roblox development planner. Describe a system, feature, or game and I'll break it into build actions.",
-      actions: [],
+    },
+    thanks: { message: "You’re welcome. Send the next Roblox feature whenever you’re ready." },
+    goodbye: { message: "See you next time. Your initiative will be here when you return." },
+    identity: {
+      message: "I’m Pathfinder, an AI Roblox development planner. Describe a game, system, bug, or feature and I’ll turn it into clear build actions.",
       suggestions: DEFAULT_SUGGESTIONS,
-      blocked: false,
-    };
-  }
-
-  if (/(who (made|created|built|developed|owns?) (you|pathfinder)|who('?s| is) behind pathfinder|who are your creators?)/.test(clean)) {
-    return {
-      message: "Pathfinder was created by Mintrix Developments, an independent two-person development team building AI tools for Roblox developers.",
-      actions: [],
+    },
+    creator: {
+      message: "Pathfinder was created by Mintrix Developments, an independent two-person team building AI tools for Roblox developers.",
       suggestions: ["What is Pathfinder building toward?", "Plan my first Roblox system"],
-      blocked: false,
-    };
-  }
-
-  if (/(who|what) (is|are) mintrix( developments)?|tell me about mintrix/.test(clean)) {
-    return {
-      message: "Mintrix Developments is the independent two-person team that created and operates Pathfinder. The team is building Pathfinder into an AI Roblox developer that can understand projects, plan changes, and eventually execute them in Roblox Studio.",
-      actions: [],
+    },
+    mintrix: {
+      message: "Mintrix Developments is the independent two-person team that created and operates Pathfinder. The team is building it into an AI Roblox developer that can understand projects, plan changes, and eventually execute them in Roblox Studio.",
       suggestions: ["Who created Pathfinder?", "What can Pathfinder do today?"],
-      blocked: false,
-    };
-  }
-
-  if (/(what model|which model|are you gemini|are you google|did google (make|create|train) you)/.test(clean)) {
-    return {
-      message: "I’m Pathfinder, created by Mintrix Developments. I use a smart mix of AI models underneath for quick help and deeper Roblox engineering, while Pathfinder’s product, orchestration, and identity are built by Mintrix Developments.",
-      actions: [],
-      suggestions: [],
-      blocked: false,
-    };
-  }
-
-  if (/(what is pathfinder|tell me about pathfinder|what('?s| is) pathfinder('?s)? (purpose|goal|mission)|what can pathfinder do today)/.test(clean)) {
-    return {
+    },
+    model: {
+      message: "I’m Pathfinder, created by Mintrix Developments. AI models provide the underlying inference, while Pathfinder’s product, orchestration, memory, and identity are built by Mintrix Developments.",
+    },
+    product: {
       message: "Pathfinder is an AI-powered Roblox development platform by Mintrix Developments. Today I turn ideas into structured build plans; the long-term goal is to understand existing games and execute changes directly inside Roblox Studio.",
-      actions: [],
       suggestions: DEFAULT_SUGGESTIONS,
-      blocked: false,
-    };
-  }
-
-  if (/^(how are you|how('?s| is) it going|what('?s| is) up|wassup|nice|cool|awesome|great|okay|ok|alright|yes|yeah|yep|no|nope)$/.test(clean)) {
-    return {
-      message: "I’m ready. Tell me what you want to create or improve in your Roblox initiative.",
-      actions: [],
+    },
+    acknowledgement: {
+      message: "Got it. I’m ready for the next Roblox feature or change.",
       suggestions: DEFAULT_SUGGESTIONS,
-      blocked: false,
-    };
-  }
-
-  if (/^(idk|i don't know|i dont know|not sure|dunno|no idea)$/.test(clean)) {
-    return {
+    },
+    uncertain: {
       message: "No problem — pick an idea below or describe the kind of Roblox game you enjoy.",
-      actions: [],
       suggestions: DEFAULT_SUGGESTIONS,
-      blocked: false,
-    };
-  }
-
-  return null;
+    },
+    presence: { message: "I’m here and ready. Tell me what you want to work on in Roblox." },
+    "small-talk": {
+      message: "I’m doing well and ready to build. What are we working on in Roblox today?",
+      suggestions: DEFAULT_SUGGESTIONS,
+    },
+    unsupported: {
+      message: "I’m focused on Roblox development rather than general assistant tasks. Ask me about a game idea, script, system, UI, datastore, or bug.",
+      suggestions: DEFAULT_SUGGESTIONS,
+    },
+  };
+  const reply = replies[kind];
+  return {
+    message: reply.message,
+    actions: [],
+    suggestions: reply.suggestions || [],
+    blocked: false,
+  };
 }
 
 async function getCreditState(email: string) {
