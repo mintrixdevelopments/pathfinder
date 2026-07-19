@@ -4,6 +4,9 @@ import { getUser } from "../../../lib/accounts";
 import { SignOutButton } from "./sign-out-button";
 import { SignOutAllButton } from "./sign-out-all-button";
 import { redisLRange } from "../../../lib/redis";
+import { EmailTestButton } from "./email-test-button";
+import { DeveloperAccess } from "./developer-access";
+import { developerAccessConfigured, hasDeveloperAccess } from "../../../lib/developer-access";
 
 interface SecurityEvent {
   id: string;
@@ -28,6 +31,9 @@ export default async function SettingsPage() {
         .map((item) => { try { return JSON.parse(item) as SecurityEvent; } catch { return null; } })
         .filter((item): item is SecurityEvent => Boolean(item?.id && item?.createdAt))
     : [];
+  const developerActive = sessionUser?.email
+    ? await hasDeveloperAccess(sessionUser.email).catch(() => false)
+    : false;
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-10">
@@ -46,6 +52,8 @@ export default async function SettingsPage() {
           <div className="flex justify-between gap-6 py-3"><dt className="text-muted">Email</dt><dd className="truncate text-right font-medium">{account?.email || sessionUser?.email}</dd></div>
         </dl>
       </section>
+
+      <DeveloperAccess active={developerActive} configured={developerAccessConfigured()} />
 
       <section className="rounded-xl border border-border bg-surface p-5">
         <h2 className="text-sm font-medium">Sign-in methods</h2>
@@ -66,6 +74,7 @@ export default async function SettingsPage() {
         <h2 className="text-sm font-medium">Sign-in alerts</h2>
         <p className="mt-1 text-xs leading-5 text-muted">Pathfinder emails you when a browser we have not seen before signs in.</p>
         <div className="mt-4 flex items-center gap-2 text-xs font-medium text-emerald-700"><span className="h-2 w-2 rounded-full bg-emerald-500" />Security notifications active</div>
+        <EmailTestButton />
       </section>
 
       <section className="rounded-xl border border-border bg-surface p-5">

@@ -8,6 +8,7 @@ import {
   type AiModeSelection,
   type AiRoute,
 } from "../../../lib/ai-routing";
+import { hasDeveloperAccess } from "../../../lib/developer-access";
 
 const BASE_DAILY_LIMIT = 15;
 const GLOBAL_DAILY_LIMIT = Math.max(
@@ -45,6 +46,7 @@ interface GenerateResponse {
   creditsCharged: number;
   mode: AiRoute;
   modeLabel: string;
+  developerMode: boolean;
 }
 
 const DEFAULT_SUGGESTIONS = [
@@ -393,13 +395,14 @@ async function generateWithGemini(prompt: string, history: ConversationTurn[], r
         description: action.description.slice(0, route === "builder" ? 420 : 240),
       }));
 
+    const blocked = parsed.blocked === true;
     return {
       message: parsed.message.slice(0, 600),
-      actions,
-      suggestions: Array.isArray(parsed.suggestions)
+      actions: blocked ? [] : actions,
+      suggestions: !blocked && Array.isArray(parsed.suggestions)
         ? parsed.suggestions.filter((item: unknown): item is string => typeof item === "string").slice(0, 4)
         : [],
-      blocked: parsed.blocked === true,
+      blocked,
     };
   } catch (error) {
     console.error("Gemini request failed", error);
@@ -413,7 +416,8 @@ function makeResponse(
   used: number,
   limit: number,
   creditsCharged: number,
-  mode: AiRoute
+  mode: AiRoute,
+  developerMode = false
 ): GenerateResponse {
   return {
     id: `bld_${Date.now()}`,
@@ -427,6 +431,7 @@ function makeResponse(
     creditsCharged,
     mode,
     modeLabel: routeLabel(mode),
+    developerMode,
   };
 }
 
@@ -437,8 +442,12 @@ export async function GET() {
   }
 
   try {
-    const state = await getCreditState(session.user.email.toLowerCase());
-    return NextResponse.json(state);
+    const email = session.user.email.toLowerCase();
+    const [state, developerMode] = await Promise.all([
+      getCreditState(email),
+      hasDeveloperAccess(email).catch(() => false),
+    ]);
+    return NextResponse.json({ ...state, developerMode });
   } catch (error) {
     console.error("Credit state failed", error);
     return NextResponse.json({ error: "Usage service unavailable" }, { status: 503 });
@@ -480,22 +489,25 @@ export async function POST(request: Request) {
   const email = session.user.email.toLowerCase();
 
   try {
-    const { used, limit } = await getCreditState(email);
+    const [{ used, limit }, developerMode] = await Promise.all([
+      getCreditState(email),
+      hasDeveloperAccess(email).catch(() => false),
+    ]);
     const localResult = localConversationReply(prompt);
     if (localResult) {
-      return NextResponse.json(makeResponse(prompt, localResult, used, limit, 0, "local"));
+      return NextResponse.json(makeResponse(prompt, localResult, used, limit, 0, "local", developerMode));
     }
 
     const route = routeAiPrompt(prompt, requestedMode);
     const generationCost = generationCostForRoute(route);
-    const reservation = await reserveGeminiRequest(email, generationCost);
-    if (reservation.code === -1) {
+    const reservation = developerMode ? null : await reserveGeminiRequest(email, generationCost);
+    if (reservation?.code === -1) {
       return NextResponse.json(
         { error: "OUT_OF_CREDITS", creditsUsed: used, creditsLimit: limit },
         { status: 429 }
       );
     }
-    if (reservation.code === -2) {
+    if (reservation?.code === -2) {
       return NextResponse.json(
         { error: "Pathfinder has reached today's shared Alpha AI limit. Try again after the daily reset." },
         { status: 503 }
@@ -504,18 +516,28 @@ export async function POST(request: Request) {
 
     const result = await generateWithGemini(prompt, history, route);
     if (!result) {
-      await refundGeminiRequest(email, reservation.dailyCharge, reservation.bonusCharge);
-      return NextResponse.json(makeResponse(prompt, fallbackReply(prompt), used, limit, 0, "local"));
+      if (reservation) {
+        await refundGeminiRequest(email, reservation.dailyCharge, reservation.bonusCharge);
+      }
+      return NextResponse.json(makeResponse(prompt, fallbackReply(prompt), used, limit, 0, "local", developerMode));
+    }
+
+    if (result.blocked) {
+      if (reservation) {
+        await refundGeminiRequest(email, reservation.dailyCharge, reservation.bonusCharge);
+      }
+      return NextResponse.json(makeResponse(prompt, result, used, limit, 0, route, developerMode));
     }
 
     return NextResponse.json(
       makeResponse(
         prompt,
         result,
-        reservation.userUsed,
-        BASE_DAILY_LIMIT + reservation.bonusCredits,
-        generationCost,
-        route
+        reservation?.userUsed ?? used,
+        reservation ? BASE_DAILY_LIMIT + reservation.bonusCredits : limit,
+        developerMode ? 0 : generationCost,
+        route,
+        developerMode
       )
     );
   } catch (error) {

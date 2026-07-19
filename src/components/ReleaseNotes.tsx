@@ -4,8 +4,24 @@ import { useEffect, useState } from "react";
 
 const releases = [
   {
-    version: "0.3.1",
+    version: "0.3.2",
     label: "Current",
+    date: "19 July 2026",
+    author: "Mintrix Developments",
+    title: "Reliable testing",
+    description:
+      "A focused reliability update making AI usage fairer and giving Mintrix a secure testing mode.",
+    changes: [
+      "Refunded generations automatically when a request is blocked or fails",
+      "Improved failed-response presentation and removed irrelevant suggestions",
+      "Added secure developer-code activation in account settings",
+      "Added unlimited Pathfinder generation access for approved testing accounts",
+      "Kept developer credentials server-side with attempt rate limiting",
+    ],
+  },
+  {
+    version: "0.3.1",
+    label: "Intelligence",
     date: "19 July 2026",
     author: "Mintrix Developments",
     title: "Pathfinder intelligence",
@@ -151,7 +167,7 @@ export function ReleaseNotes() {
         <SparkleIcon />
         <span>Updates</span>
         <span className="rounded-full bg-neutral-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-          0.3.1
+          0.3.2
         </span>
       </button>
 
